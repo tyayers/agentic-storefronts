@@ -1,0 +1,27 @@
+<div class="card" style="max-width: 600px;">
+    <h3>Account Settings</h3>
+    <form style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem;">
+        <div>
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem;">Full Name</label>
+            <input type="text" value="Alex Doe" style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary);">
+        </div>
+        <div>
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.9rem;">Email Address</label>
+            <input type="email" value="alex.doe@example.com" style="width: 100%; padding: 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary);">
+        </div>
+
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+            <h4 style="margin-bottom: 1rem;">Notifications</h4>
+            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; margin-bottom: 0.5rem;">
+                <input type="checkbox" checked style="accent-color: var(--accent-color);">
+                <span>Email Notifications</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                <input type="checkbox" style="accent-color: var(--accent-color);">
+                <span>SMS Notifications</span>
+            </label>
+        </div>
+
+        <button type="button" style="margin-top: 1rem; align-self: flex-start; background: var(--accent-color); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer;">Save Changes</button>
+    </form>
+</div>

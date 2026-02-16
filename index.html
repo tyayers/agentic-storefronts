@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agentic Storefronts</title>
+    <link rel="stylesheet" href="style.css" />
+    <!-- Google Fonts for modern typography -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Material Icons for UI elements -->
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- Auth Wrapper -->
+    <div id="auth-wrapper">
+        <!-- Landing Page (Shown when not logged in) -->
+        <div id="landing-page" class="landing-container" style="display: none;">
+            <div class="landing-content">
+                <div class="landing-hero">
+                    <span class="material-icons-round brand-icon-lg">layers</span>
+                    <h1 class="landing-title">Agentic Storefronts</h1>
+                    <p class="landing-subtitle">The future of autonomous product management. <br> Orchestrate your consumption with AI-driven precision.</p>
+
+                    <div id="g_id_onload"
+                        data-client_id="609874082793-0ad22eutlkcrrs0uehm8vekut6j07u2j.apps.googleusercontent.com"
+                        data-callback="handleCredentialResponse"
+                        data-auto_prompt="false"
+                        data-auto_select="false"
+                        data-itp_support="true">
+                    </div>
+                    <div class="g_id_signin"
+                        data-type="standard"
+                        data-shape="pill"
+                        data-theme="outline"
+                        data-text="signin_with"
+                        data-size="large"
+                        data-logo_alignment="left">
+                    </div>
+
+                    <p class="landing-note">Use the Google Sign-In button above to access the dashboard.</p>
+                </div>
+            </div>
+            <footer class="landing-footer">
+                &copy; 2024 Nexus Inc.
+            </footer>
+        </div>
+
+        <!-- App Container (Shown when logged in) -->
+        <div id="app-container" class="app-container" style="display: none;">
+            <!-- Sidebar -->
+            <aside class="sidebar">
+        <div class="brand">
+          <span class="material-icons-round brand-icon">layers</span>
+          <h1>Agentic Storefronts</h1>
+        </div>
+
+        <nav class="nav-menu" id="nav-menu">
+          <!-- Navigation items will be injected by JS -->
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="user-profile">
+            <img
+              src="https://ui-avatars.com/api/?name=Alex+Doe&background=random&color=fff"
+              alt="User"
+              class="avatar"
+            />
+            <div class="user-info">
+              <span class="user-name">Alex Doe</span>
+              <span class="user-role">Admin</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <header class="top-bar">
+          <h2 id="page-title">Dashboard</h2>
+          <div class="actions">
+            <button
+              class="icon-btn"
+              id="theme-toggle"
+              aria-label="Toggle Theme"
+            >
+              <span class="material-icons-round">light_mode</span>
+            </button>
+            <button class="icon-btn" aria-label="Notifications">
+              <span class="material-icons-round">notifications</span>
+              <span class="badge"></span>
+            </button>
+          </div>
+        </header>
+
+        <div id="content-area" class="content-wrapper">
+          <!-- Dynamic Content Loaded Here -->
+          <div class="loader"></div>
+        </div>
+      </main>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="app.js"></script>
+  </body>
+</html>
