@@ -8,6 +8,12 @@ document.addEventListener("DOMContentLoaded", () => {
       file: "views/storefronts.html",
     },
     {
+      id: "audiences",
+      label: "Audiences",
+      icon: "people",
+      file: "views/audiences.html",
+    },
+    {
       id: "dashboard",
       label: "Dashboard",
       icon: "dashboard",

@@ -37,6 +37,56 @@
     background-color: var(--accent-hover);
     color: white;
   }
+
+  /* Toggle Switch */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 20px;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+    border-radius: 20px;
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
+  }
+
+  input:checked + .slider {
+    background-color: var(--accent-color);
+  }
+
+  input:focus + .slider {
+    box-shadow: 0 0 1px var(--accent-color);
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(20px);
+  }
 </style>
 
 <div id="storefront-view-container">
@@ -90,8 +140,8 @@
               Name
               <span class="material-icons-round sort-icon">unfold_more</span>
             </th>
-            <th data-sort="projects">
-              Projects
+            <th data-sort="types">
+              Types
               <span class="material-icons-round sort-icon">unfold_more</span>
             </th>
             <th data-sort="sources">
@@ -250,6 +300,15 @@
       sortOrder: "asc", // or 'desc'
     };
 
+    // --- Mock Data ---
+    const MOCK_PRODUCTS = [
+      { id: "p1", name: "Product A" },
+      { id: "p2", name: "Product B" },
+      { id: "p3", name: "Product C" },
+      { id: "p4", name: "Product D" },
+      { id: "p5", name: "Product E" },
+    ];
+
     // --- Elements ---
     const listView = document.getElementById("storefront-list-view");
     const editorView = document.getElementById("storefront-editor-view");
@@ -263,51 +322,258 @@
     const headers = document.querySelectorAll("th[data-sort]");
 
     // --- Templates ---
+    function createManualProductRow(productData = {}) {
+      const div = document.createElement("div");
+      div.className = "manual-product-row";
+      div.style.cssText =
+        "background: var(--bg-card); padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 0.5rem; position: relative;";
+
+      div.innerHTML = `
+             <button type="button" class="btn-remove-product" style="position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; color: #ef4444; cursor: pointer;">
+                <span class="material-icons-round" style="font-size: 1rem;">close</span>
+            </button>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem; padding-right: 1.5rem;">
+                <input type="text" class="prod-name" value="${productData.name || ""}" placeholder="Product Name" style="width: 100%; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                <input type="text" class="prod-desc" value="${productData.description || ""}" placeholder="Description" style="width: 100%; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);">
+            </div>
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0.5rem;">
+                <input type="text" class="prod-url" value="${productData.endpointUrl || ""}" placeholder="Endpoint URL" style="width: 100%; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                <select class="prod-auth" style="width: 100%; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                    <option value="none" ${productData.auth === "none" ? "selected" : ""}>No Auth</option>
+                    <option value="oauth" ${productData.auth === "oauth" ? "selected" : ""}>OAuth</option>
+                    <option value="apikey" ${productData.auth === "apikey" ? "selected" : ""}>API Key</option>
+                </select>
+            </div>
+        `;
+      div
+        .querySelector(".btn-remove-product")
+        .addEventListener("click", () => div.remove());
+      return div;
+    }
+
     function createSourceRow(data = {}) {
       const id = Date.now() + Math.random().toString(36).substr(2, 9);
       const div = document.createElement("div");
       div.className = "source-row";
       div.style.cssText =
         "background: var(--bg-body); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color); position: relative;";
+
+      const type = data.type || "vertex";
+      const enableAll = data.enableAll !== undefined ? data.enableAll : true;
+      const selectedProducts = data.selectedProducts || []; // For Vertex/Apigee if enableAll is false
+      const manualProducts = data.manualProducts || []; // For Manual
+
+      // Local state for this row's product list
+      let productFilter = "";
+      let productSortOrder = "asc";
+
       div.innerHTML = `
                 <button type="button" class="btn-remove-source" style="position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; color: #ef4444; cursor: pointer;">
                     <span class="material-icons-round" style="font-size: 1.2rem;">close</span>
                 </button>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                     <div>
-                        <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Source Name</label>
-                        <input type="text" class="source-name" value="${data.name || ""}" placeholder="e.g. Primary DB" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                        <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Google Cloud Project Id</label>
+                        <input type="text" class="source-name" value="${data.name || ""}" placeholder="e.g. my-gcp-project" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
                     </div>
                     <div>
-                        <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Project ID</label>
-                        <input type="text" class="source-proj" value="${data.projectId || ""}" placeholder="e.g. my-project-123" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                        <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Type</label>
+                        <select class="source-type" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                            <option value="vertex" ${type === "vertex" ? "selected" : ""}>Vertex Products</option>
+                            <option value="apigee" ${type === "apigee" ? "selected" : ""}>Apigee Products</option>
+                            <option value="manual" ${type === "manual" ? "selected" : ""}>Manual</option>
+                        </select>
                     </div>
                 </div>
-                <div>
-                    <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Enabled Services</label>
-                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                        ${[
-                          "Inventory",
-                          "Pricing",
-                          "Promotions",
-                          "Recommendations",
-                        ]
-                          .map(
-                            (svc) => `
-                            <label class="service-chip">
-                                <input type="checkbox" class="source-svc" value="${svc}" ${(data.services || []).includes(svc) ? "checked" : ""}>
-                                <span>${svc}</span>
-                            </label>
-                        `,
-                          )
-                          .join("")}
-                    </div>
+
+                <!-- Config Container -->
+                <div class="config-container" style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                    <!-- Content injected by JS -->
                 </div>
             `;
+
+      const typeSelect = div.querySelector(".source-type");
+      const configContainer = div.querySelector(".config-container");
+
+      function renderConfig() {
+        const currentType = typeSelect.value;
+        configContainer.innerHTML = "";
+
+        if (currentType === "vertex" || currentType === "apigee") {
+          // --- Vertex / Apigee Mode ---
+          const modeDiv = document.createElement("div");
+
+          let isChecked = data.type === currentType ? enableAll : true;
+
+          modeDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <span style="font-size: 0.9rem; font-weight: 500;">Enable All Products</span>
+                    <label class="switch">
+                        <input type="checkbox" class="enable-all-switch" ${isChecked ? "checked" : ""}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="product-selection-area" style="display: ${isChecked ? "none" : "block"};">
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Select products to include:</div>
+
+                    <!-- Controls -->
+                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                        <div style="position: relative; flex: 1;">
+                             <span class="material-icons-round" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 1.1rem; color: var(--text-secondary);">search</span>
+                             <input type="text" class="product-search" placeholder="Filter products..." style="width: 100%; padding: 0.5rem 0.5rem 0.5rem 2.2rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                        </div>
+                        <button type="button" class="btn-sort-products" title="Sort A-Z" style="padding: 0 0.75rem; border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 4px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center;">
+                            <span class="material-icons-round">sort_by_alpha</span>
+                            <span class="sort-indicator" style="font-size: 0.8rem; margin-left: 2px;"></span>
+                        </button>
+                    </div>
+
+                    <div class="product-list" style="max-height: 250px; overflow-y: auto;">
+                        <!-- Products injected here -->
+                    </div>
+                </div>
+             `;
+
+          const switchEl = modeDiv.querySelector(".enable-all-switch");
+          const selectionArea = modeDiv.querySelector(
+            ".product-selection-area",
+          );
+          const searchInput = modeDiv.querySelector(".product-search");
+          const sortBtn = modeDiv.querySelector(".btn-sort-products");
+          const productList = modeDiv.querySelector(".product-list");
+
+          function renderProductList() {
+            productList.innerHTML = "";
+
+            // Filter
+            let filtered = MOCK_PRODUCTS.filter((p) =>
+              p.name.toLowerCase().includes(productFilter.toLowerCase()),
+            );
+
+            // Sort
+            filtered.sort((a, b) => {
+              if (productSortOrder === "asc")
+                return a.name.localeCompare(b.name);
+              return b.name.localeCompare(a.name);
+            });
+
+            if (filtered.length === 0) {
+              productList.innerHTML = `<div style="padding: 1rem; text-align: center; color: var(--text-secondary); font-size: 0.85rem;">No products found</div>`;
+              return;
+            }
+
+            filtered.forEach((p) => {
+              const isProdChecked =
+                data.type === currentType && !isChecked
+                  ? selectedProducts.includes(p.id)
+                  : false;
+
+              // Maintain checkbox state even if filtering/sorting re-renders
+              // Note: In a real app we might sync this to a transient state object if the DOM is destroyed,
+              // but here 'selectedProducts' is our source of truth.
+              // However, 'selectedProducts' only has SAVED data.
+              // If user toggles a box, then filters, the toggle might be lost if we don't save it back to 'selectedProducts' or a temp set.
+              // For this prototype, let's assume immediate persistence to the 'data' object reference passed in.
+
+              const row = document.createElement("div");
+              row.style.cssText =
+                "display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-card); margin-bottom: 4px; border-radius: 4px; border: 1px solid transparent;";
+              row.innerHTML = `
+                        <span>${p.name}</span>
+                        <label class="switch" style="width: 34px; height: 18px;">
+                            <input type="checkbox" class="product-toggle" value="${p.id}" ${selectedProducts.includes(p.id) ? "checked" : ""}>
+                            <span class="slider" style="border-radius: 18px;"></span>
+                        </label>
+                  `;
+
+              // Update our data model immediately on toggle so filtering doesn't lose state
+              const toggle = row.querySelector(".product-toggle");
+              toggle.addEventListener("change", (e) => {
+                if (e.target.checked) {
+                  if (!selectedProducts.includes(p.id))
+                    selectedProducts.push(p.id);
+                } else {
+                  const idx = selectedProducts.indexOf(p.id);
+                  if (idx > -1) selectedProducts.splice(idx, 1);
+                }
+                data.selectedProducts = selectedProducts; // Ensure reference update
+              });
+
+              productList.appendChild(row);
+            });
+          }
+
+          switchEl.addEventListener("change", (e) => {
+            selectionArea.style.display = e.target.checked ? "none" : "block";
+            isChecked = e.target.checked;
+            data.enableAll = isChecked;
+          });
+
+          searchInput.addEventListener("input", (e) => {
+            productFilter = e.target.value;
+            renderProductList();
+          });
+
+          sortBtn.addEventListener("click", () => {
+            productSortOrder = productSortOrder === "asc" ? "desc" : "asc";
+            // Visual indicator
+            const icon = sortBtn.querySelector(".material-icons-round");
+            icon.textContent =
+              productSortOrder === "asc" ? "sort_by_alpha" : "sort_by_alpha"; // Icon is same, maybe change color?
+            sortBtn.style.color =
+              productSortOrder === "asc"
+                ? "var(--text-secondary)"
+                : "var(--accent-color)";
+            renderProductList();
+          });
+
+          // Initial render of list
+          renderProductList();
+
+          configContainer.appendChild(modeDiv);
+        } else if (currentType === "manual") {
+          // --- Manual Mode ---
+          const manualDiv = document.createElement("div");
+          manualDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <label style="font-weight: 500; font-size: 0.9rem;">Products</label>
+                    <button type="button" class="btn-add-product" style="font-size: 0.8rem; padding: 4px 8px; background: var(--nav-item-active-bg); color: var(--nav-item-active-text); border: none; border-radius: 4px; cursor: pointer;">
+                        + Add Product
+                    </button>
+                </div>
+                <div class="manual-products-list"></div>
+              `;
+
+          const list = manualDiv.querySelector(".manual-products-list");
+          const btnAdd = manualDiv.querySelector(".btn-add-product");
+
+          // Pre-populate if existing data
+          if (data.type === "manual" && manualProducts.length > 0) {
+            manualProducts.forEach((p) =>
+              list.appendChild(createManualProductRow(p)),
+            );
+          } else {
+            // Add one empty by default? No, maybe user wants none initially.
+          }
+
+          btnAdd.addEventListener("click", () => {
+            list.appendChild(createManualProductRow());
+          });
+
+          configContainer.appendChild(manualDiv);
+        }
+      }
+
+      typeSelect.addEventListener("change", renderConfig);
 
       div
         .querySelector(".btn-remove-source")
         .addEventListener("click", () => div.remove());
+
+      // Initial Render
+      renderConfig();
+
       return div;
     }
 
@@ -315,11 +581,16 @@
       const tr = document.createElement("tr");
 
       const sourceCount = sf.sources ? sf.sources.length : 0;
-      const projectIds = sf.sources
-        ? sf.sources
-            .map((s) => s.projectId)
-            .filter(Boolean)
-            .join(", ")
+      const types = sf.sources
+        ? [
+            ...new Set(
+              sf.sources.map((s) => {
+                if (s.type === "vertex") return "Vertex";
+                if (s.type === "apigee") return "Apigee";
+                return "Manual";
+              }),
+            ),
+          ].join(", ")
         : "";
 
       tr.innerHTML = `
@@ -329,7 +600,7 @@
                 <span style="font-weight: 500;">${sf.name}</span>
             </div>
           </td>
-          <td style="color: var(--text-secondary);">${projectIds || "—"}</td>
+          <td style="color: var(--text-secondary);">${types || "—"}</td>
           <td>
             <span style="background: var(--bg-body); padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; border: 1px solid var(--border-color);">${sourceCount}</span>
           </td>
@@ -364,13 +635,8 @@
       // Filter
       let displayData = storefronts.filter((sf) => {
         const search = state.filter.toLowerCase();
-        return (
-          sf.name.toLowerCase().includes(search) ||
-          (sf.sources &&
-            sf.sources.some(
-              (s) => s.projectId && s.projectId.toLowerCase().includes(search),
-            ))
-        );
+        return sf.name.toLowerCase().includes(search);
+        // Could filter by source type too if needed, but simple name search is fine for now
       });
 
       // Sort
@@ -382,16 +648,10 @@
             valA = a.name.toLowerCase();
             valB = b.name.toLowerCase();
             break;
-          case "projects":
-            // Sort by first project ID for simplicity
-            valA =
-              a.sources && a.sources[0] && a.sources[0].projectId
-                ? a.sources[0].projectId.toLowerCase()
-                : "";
-            valB =
-              b.sources && b.sources[0] && b.sources[0].projectId
-                ? b.sources[0].projectId.toLowerCase()
-                : "";
+          case "types":
+            // Basic sort by first type string
+            valA = a.sources && a.sources[0] ? a.sources[0].type : "";
+            valB = b.sources && b.sources[0] ? b.sources[0].type : "";
             break;
           case "sources":
             valA = a.sources ? a.sources.length : 0;
@@ -520,14 +780,35 @@
       // Collect sources
       const sourceRows = sourcesContainer.querySelectorAll(".source-row");
       const sources = Array.from(sourceRows).map((row) => {
-        const svcs = Array.from(
-          row.querySelectorAll(".source-svc:checked"),
-        ).map((cb) => cb.value);
-        return {
-          name: row.querySelector(".source-name").value,
-          projectId: row.querySelector(".source-proj").value,
-          services: svcs,
-        };
+        const sourceName = row.querySelector(".source-name").value;
+        const type = row.querySelector(".source-type").value;
+        let sourceData = { name: sourceName, type };
+
+        if (type === "vertex" || type === "apigee") {
+          const enableAll = row.querySelector(".enable-all-switch").checked;
+          sourceData.enableAll = enableAll;
+          if (!enableAll) {
+            // Collect selected product IDs
+            const checkedProds = Array.from(
+              row.querySelectorAll(".product-toggle:checked"),
+            ).map((cb) => cb.value);
+            sourceData.selectedProducts = checkedProds;
+          } else {
+            sourceData.selectedProducts = []; // Cleared if enable all is true
+          }
+        } else if (type === "manual") {
+          // Collect manual products
+          const prodRows = row.querySelectorAll(".manual-product-row");
+          const manualProducts = Array.from(prodRows).map((pRow) => ({
+            name: pRow.querySelector(".prod-name").value,
+            description: pRow.querySelector(".prod-desc").value,
+            endpointUrl: pRow.querySelector(".prod-url").value,
+            auth: pRow.querySelector(".prod-auth").value,
+          }));
+          sourceData.manualProducts = manualProducts;
+        }
+
+        return sourceData;
       });
 
       if (id) {
