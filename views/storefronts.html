@@ -48,9 +48,20 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
       "
     >
-      <h3>Your Storefronts</h3>
+      <div style="display: flex; gap: 1rem; align-items: center; flex: 1">
+        <h3 style="white-space: nowrap">Your Storefronts</h3>
+        <input
+          type="text"
+          id="storefront-search"
+          class="search-input"
+          placeholder="Search storefronts..."
+        />
+      </div>
+
       <button
         id="btn-add-storefront"
         style="
@@ -63,6 +74,7 @@
           display: flex;
           align-items: center;
           gap: 0.5rem;
+          white-space: nowrap;
         "
       >
         <span class="material-icons-round" style="font-size: 1.2rem">add</span>
@@ -70,8 +82,29 @@
       </button>
     </div>
 
-    <div id="storefront-grid" class="card-grid">
-      <!-- Cards injected here -->
+    <div class="data-table-container">
+      <table class="data-table" id="storefront-table">
+        <thead>
+          <tr>
+            <th data-sort="name">
+              Name
+              <span class="material-icons-round sort-icon">unfold_more</span>
+            </th>
+            <th data-sort="projects">
+              Projects
+              <span class="material-icons-round sort-icon">unfold_more</span>
+            </th>
+            <th data-sort="sources">
+              Sources
+              <span class="material-icons-round sort-icon">unfold_more</span>
+            </th>
+            <th style="text-align: right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="storefront-table-body">
+          <!-- Rows injected here -->
+        </tbody>
+      </table>
     </div>
 
     <div
@@ -211,15 +244,23 @@
   (function () {
     // --- State ---
     let storefronts = JSON.parse(localStorage.getItem("storefronts")) || [];
+    let state = {
+      filter: "",
+      sortKey: "name",
+      sortOrder: "asc", // or 'desc'
+    };
 
     // --- Elements ---
     const listView = document.getElementById("storefront-list-view");
     const editorView = document.getElementById("storefront-editor-view");
-    const grid = document.getElementById("storefront-grid");
+    const tableBody = document.getElementById("storefront-table-body");
+    const tableContainer = document.querySelector(".data-table-container");
     const emptyState = document.getElementById("empty-state");
     const form = document.getElementById("storefront-form");
     const sourcesContainer = document.getElementById("sources-container");
     const editorTitle = document.getElementById("editor-title");
+    const searchInput = document.getElementById("storefront-search");
+    const headers = document.querySelectorAll("th[data-sort]");
 
     // --- Templates ---
     function createSourceRow(data = {}) {
@@ -270,67 +311,142 @@
       return div;
     }
 
-    function createStorefrontCard(sf) {
-      const div = document.createElement("div");
-      div.className = "card";
+    function createTableRow(sf) {
+      const tr = document.createElement("tr");
 
       const sourceCount = sf.sources ? sf.sources.length : 0;
       const projectIds = sf.sources
-        ? sf.sources.map((s) => s.projectId).join(", ")
+        ? sf.sources
+            .map((s) => s.projectId)
+            .filter(Boolean)
+            .join(", ")
         : "";
 
-      div.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem;">
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
-                         <span class="material-icons-round" style="color: var(--accent-color); background: var(--nav-item-active-bg); padding: 8px; border-radius: 8px;">store</span>
-                         <h3 style="margin: 0; font-size: 1.1rem;">${sf.name}</h3>
-                    </div>
-                    <div style="position: relative;">
-                        <button class="icon-btn btn-menu" style="padding: 4px;">
-                            <span class="material-icons-round">more_vert</span>
-                        </button>
-                         <!-- Simple dropdown could go here, but for MVP we use direct buttons below or standard edit/delete icons -->
-                    </div>
-                </div>
+      tr.innerHTML = `
+          <td>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span class="material-icons-round" style="color: var(--accent-color); background: var(--nav-item-active-bg); padding: 4px; border-radius: 6px; font-size: 1.2rem;">store</span>
+                <span style="font-weight: 500;">${sf.name}</span>
+            </div>
+          </td>
+          <td style="color: var(--text-secondary);">${projectIds || "—"}</td>
+          <td>
+            <span style="background: var(--bg-body); padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; border: 1px solid var(--border-color);">${sourceCount}</span>
+          </td>
+          <td>
+            <div class="action-btn-group">
+                <button class="icon-btn btn-edit" title="Edit">
+                    <span class="material-icons-round" style="font-size: 1.2rem;">edit</span>
+                </button>
+                <button class="icon-btn btn-delete" title="Delete" style="color: #ef4444;">
+                    <span class="material-icons-round" style="font-size: 1.2rem;">delete</span>
+                </button>
+            </div>
+          </td>
+      `;
 
-                <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
-                    <div style="margin-bottom: 0.5rem;"><strong>${sourceCount}</strong> Source${sourceCount !== 1 ? "s" : ""} Configured</div>
-                    <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Projects: ${projectIds || "None"}</div>
-                </div>
-
-                <div style="display: flex; gap: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: auto; justify-content: flex-end;">
-                    <button class="btn-edit" style="padding: 0.5rem 1rem; background: var(--bg-body); border: none; border-radius: 4px; cursor: pointer; color: var(--text-primary); font-weight: 500;">Edit</button>
-                    <button class="btn-delete" style="padding: 0.5rem; background: #fee2e2; border: none; border-radius: 4px; cursor: pointer; color: #991b1b;">
-                        <span class="material-icons-round" style="font-size: 1.2rem;">delete</span>
-                    </button>
-                </div>
-            `;
-
-      div
-        .querySelector(".btn-edit")
-        .addEventListener("click", () => openEditor(sf));
-      div.querySelector(".btn-delete").addEventListener("click", () => {
+      tr.querySelector(".btn-edit").addEventListener("click", () =>
+        openEditor(sf),
+      );
+      tr.querySelector(".btn-delete").addEventListener("click", () => {
         if (confirm("Are you sure you want to delete this storefront?")) {
           deleteStorefront(sf.id);
         }
       });
 
-      return div;
+      return tr;
     }
 
     // --- Actions ---
     function renderList() {
-      grid.innerHTML = "";
-      if (storefronts.length === 0) {
-        grid.style.display = "none";
-        emptyState.style.display = "block";
+      tableBody.innerHTML = "";
+
+      // Filter
+      let displayData = storefronts.filter((sf) => {
+        const search = state.filter.toLowerCase();
+        return (
+          sf.name.toLowerCase().includes(search) ||
+          (sf.sources &&
+            sf.sources.some(
+              (s) => s.projectId && s.projectId.toLowerCase().includes(search),
+            ))
+        );
+      });
+
+      // Sort
+      displayData.sort((a, b) => {
+        let valA, valB;
+
+        switch (state.sortKey) {
+          case "name":
+            valA = a.name.toLowerCase();
+            valB = b.name.toLowerCase();
+            break;
+          case "projects":
+            // Sort by first project ID for simplicity
+            valA =
+              a.sources && a.sources[0] && a.sources[0].projectId
+                ? a.sources[0].projectId.toLowerCase()
+                : "";
+            valB =
+              b.sources && b.sources[0] && b.sources[0].projectId
+                ? b.sources[0].projectId.toLowerCase()
+                : "";
+            break;
+          case "sources":
+            valA = a.sources ? a.sources.length : 0;
+            valB = b.sources ? b.sources.length : 0;
+            break;
+          default:
+            return 0;
+        }
+
+        if (valA < valB) return state.sortOrder === "asc" ? -1 : 1;
+        if (valA > valB) return state.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+
+      // Update Headers
+      headers.forEach((th) => {
+        const icon = th.querySelector(".sort-icon");
+        th.classList.remove("sorted");
+        icon.textContent = "unfold_more"; // Default
+
+        if (th.dataset.sort === state.sortKey) {
+          th.classList.add("sorted");
+          icon.textContent =
+            state.sortOrder === "asc" ? "arrow_upward" : "arrow_downward";
+        }
+      });
+
+      if (displayData.length === 0) {
+        if (state.filter) {
+          // No search results
+          tableContainer.style.display = "block"; // Keep table header visible? Or hide? Let's show empty row
+          tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No results found for "${state.filter}"</td></tr>`;
+          emptyState.style.display = "none";
+        } else {
+          // No data at all
+          tableContainer.style.display = "none";
+          emptyState.style.display = "block";
+        }
       } else {
-        grid.style.display = "grid";
+        tableContainer.style.display = "block";
         emptyState.style.display = "none";
-        storefronts.forEach((sf) => {
-          grid.appendChild(createStorefrontCard(sf));
+        displayData.forEach((sf) => {
+          tableBody.appendChild(createTableRow(sf));
         });
       }
+    }
+
+    function handleSort(key) {
+      if (state.sortKey === key) {
+        state.sortOrder = state.sortOrder === "asc" ? "desc" : "asc";
+      } else {
+        state.sortKey = key;
+        state.sortOrder = "asc";
+      }
+      renderList();
     }
 
     function openEditor(sf = null) {
@@ -383,6 +499,17 @@
     document
       .getElementById("btn-cancel")
       .addEventListener("click", closeEditor);
+
+    searchInput.addEventListener("input", (e) => {
+      state.filter = e.target.value;
+      renderList();
+    });
+
+    headers.forEach((th) => {
+      th.addEventListener("click", () => {
+        handleSort(th.dataset.sort);
+      });
+    });
 
     form.addEventListener("submit", (e) => {
       e.preventDefault();
