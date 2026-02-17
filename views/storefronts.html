@@ -458,9 +458,7 @@
               margin-bottom: 0.5rem;
             "
           >
-            <label style="font-weight: 500; font-size: 0.9rem"
-              >Data Sources</label
-            >
+            <h4 style="font-size: 1rem; margin: 0">Data Sources</h4>
             <button
               type="button"
               id="btn-add-source"
@@ -600,35 +598,6 @@
     });
 
     // --- Templates ---
-    function createManualProductRow(productData = {}) {
-      const div = document.createElement("div");
-      div.className = "manual-product-row";
-      div.style.cssText =
-        "background: var(--bg-card); padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 0.5rem; position: relative;";
-
-      div.innerHTML = `
-             <button type="button" class="btn-remove-product" style="position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; color: #ef4444; cursor: pointer;">
-                <span class="material-icons-round" style="font-size: 1rem;">close</span>
-            </button>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem; padding-right: 1.5rem;">
-                <input type="text" class="prod-name" value="${productData.name || ""}" placeholder="Product Name" style="width: 100%; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);">
-                <input type="text" class="prod-desc" value="${productData.description || ""}" placeholder="Description" style="width: 100%; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);">
-            </div>
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0.5rem;">
-                <input type="text" class="prod-url" value="${productData.endpointUrl || ""}" placeholder="Endpoint URL" style="width: 100%; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);">
-                <select class="prod-auth" style="width: 100%; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--border-color);">
-                    <option value="none" ${productData.auth === "none" ? "selected" : ""}>No Auth</option>
-                    <option value="oauth" ${productData.auth === "oauth" ? "selected" : ""}>OAuth</option>
-                    <option value="apikey" ${productData.auth === "apikey" ? "selected" : ""}>API Key</option>
-                </select>
-            </div>
-        `;
-      div
-        .querySelector(".btn-remove-product")
-        .addEventListener("click", () => div.remove());
-      return div;
-    }
-
     function createSourceRow(data = {}) {
       const id = Date.now() + Math.random().toString(36).substr(2, 9);
       const div = document.createElement("div");
@@ -909,32 +878,164 @@
         } else if (currentType === "manual") {
           // --- Manual Mode ---
           const manualDiv = document.createElement("div");
+
           manualDiv.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <label style="font-weight: 500; font-size: 0.9rem;">Products</label>
-                    <button type="button" class="btn-add-product" style="font-size: 0.8rem; padding: 4px 8px; background: var(--nav-item-active-bg); color: var(--nav-item-active-text); border: none; border-radius: 4px; cursor: pointer;">
-                        + Add Product
-                    </button>
+                <div class="manual-list-view">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <label style="font-weight: 500; font-size: 0.9rem;">Products</label>
+                        <button type="button" class="btn-add-manual" style="font-size: 0.8rem; padding: 4px 8px; background: var(--nav-item-active-bg); color: var(--nav-item-active-text); border: none; border-radius: 4px; cursor: pointer;">
+                            + Add Product
+                        </button>
+                    </div>
+                    <div class="manual-list" style="border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden;">
+                        <!-- List Items -->
+                    </div>
                 </div>
-                <div class="manual-products-list"></div>
-              `;
 
-          const list = manualDiv.querySelector(".manual-products-list");
-          const btnAdd = manualDiv.querySelector(".btn-add-product");
+                <div class="manual-editor-view" style="display: none; background: var(--bg-card); padding: 1rem; border: 1px solid var(--border-color); border-radius: 4px; margin-top: 0.5rem;">
+                    <h5 class="editor-mode-title" style="margin-bottom: 1rem; font-size: 0.9rem;">Add Product</h5>
+                    <input type="hidden" class="edit-index">
 
-          // Pre-populate if existing data
-          if (data.type === "manual" && manualProducts.length > 0) {
-            manualProducts.forEach((p) =>
-              list.appendChild(createManualProductRow(p)),
-            );
-          } else {
-            // Add one empty by default? No, maybe user wants none initially.
+                    <div style="margin-bottom: 0.75rem;">
+                        <input type="text" class="manual-name" placeholder="Product Name" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                    </div>
+                    <div style="margin-bottom: 0.75rem;">
+                        <input type="text" class="manual-desc" placeholder="Description" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
+                        <input type="text" class="manual-url" placeholder="Endpoint / Spec URL" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                        <select class="manual-type" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                            <option value="rest">REST</option>
+                            <option value="grpc">gRPC</option>
+                            <option value="json-rpc">JSON-RPC</option>
+                            <option value="mcp">MCP</option>
+                            <option value="a2a">A2A</option>
+                        </select>
+                        <select class="manual-auth" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                            <option value="none">No Auth</option>
+                            <option value="oauth">OAuth</option>
+                            <option value="apikey">API Key</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+                        <button type="button" class="btn-cancel-manual" style="padding: 4px 12px; background: transparent; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; color: var(--text-primary);">Cancel</button>
+                        <button type="button" class="btn-save-manual" style="padding: 4px 12px; background: var(--accent-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Save</button>
+                    </div>
+                </div>
+          `;
+
+          const listView = manualDiv.querySelector(".manual-list-view");
+          const listContainer = manualDiv.querySelector(".manual-list");
+          const editorView = manualDiv.querySelector(".manual-editor-view");
+          const btnAdd = manualDiv.querySelector(".btn-add-manual");
+
+          // Editor inputs
+          const inpName = manualDiv.querySelector(".manual-name");
+          const inpDesc = manualDiv.querySelector(".manual-desc");
+          const inpUrl = manualDiv.querySelector(".manual-url");
+          const inpType = manualDiv.querySelector(".manual-type");
+          const inpAuth = manualDiv.querySelector(".manual-auth");
+          const inpIndex = manualDiv.querySelector(".edit-index");
+          const title = manualDiv.querySelector(".editor-mode-title");
+
+          function renderManualList() {
+            listContainer.innerHTML = "";
+            if (manualProducts.length === 0) {
+              listContainer.innerHTML = `<div style="padding: 1rem; text-align: center; color: var(--text-secondary); font-size: 0.85rem;">No products defined</div>`;
+              return;
+            }
+
+            manualProducts.forEach((prod, idx) => {
+              const row = document.createElement("div");
+              row.style.cssText =
+                "display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid var(--border-color); background: var(--bg-card);";
+              if (idx === manualProducts.length - 1)
+                row.style.borderBottom = "none";
+
+              row.innerHTML = `
+                    <span style="font-weight: 500; font-size: 0.9rem;">${prod.name}</span>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" class="btn-edit-item" style="background: none; border: none; cursor: pointer; color: var(--text-secondary);"><span class="material-icons-round" style="font-size: 1.1rem;">edit</span></button>
+                        <button type="button" class="btn-delete-item" style="background: none; border: none; cursor: pointer; color: #ef4444;"><span class="material-icons-round" style="font-size: 1.1rem;">delete</span></button>
+                    </div>
+                  `;
+
+              row
+                .querySelector(".btn-edit-item")
+                .addEventListener("click", () => openManualEditor(idx));
+              row
+                .querySelector(".btn-delete-item")
+                .addEventListener("click", () => {
+                  manualProducts.splice(idx, 1);
+                  renderManualList();
+                });
+
+              listContainer.appendChild(row);
+            });
           }
 
-          btnAdd.addEventListener("click", () => {
-            list.appendChild(createManualProductRow());
-          });
+          function openManualEditor(index = -1) {
+            listView.style.display = "none";
+            editorView.style.display = "block";
+            inpIndex.value = index;
 
+            if (index > -1) {
+              const prod = manualProducts[index];
+              title.textContent = "Edit Product";
+              inpName.value = prod.name;
+              inpDesc.value = prod.description;
+              inpUrl.value = prod.endpointUrl;
+              inpType.value = prod.type || "rest";
+              inpAuth.value = prod.auth;
+            } else {
+              title.textContent = "Add Product";
+              inpName.value = "";
+              inpDesc.value = "";
+              inpUrl.value = "";
+              inpType.value = "rest";
+              inpAuth.value = "none";
+            }
+          }
+
+          function closeManualEditor() {
+            editorView.style.display = "none";
+            listView.style.display = "block";
+          }
+
+          btnAdd.addEventListener("click", () => openManualEditor(-1));
+
+          manualDiv
+            .querySelector(".btn-cancel-manual")
+            .addEventListener("click", closeManualEditor);
+
+          manualDiv
+            .querySelector(".btn-save-manual")
+            .addEventListener("click", () => {
+              const idx = parseInt(inpIndex.value);
+              const newProd = {
+                name: inpName.value,
+                description: inpDesc.value,
+                endpointUrl: inpUrl.value,
+                type: inpType.value,
+                auth: inpAuth.value,
+              };
+
+              if (!newProd.name) {
+                alert("Product name is required");
+                return;
+              }
+
+              if (idx > -1) {
+                manualProducts[idx] = newProd;
+              } else {
+                manualProducts.push(newProd);
+              }
+              renderManualList();
+              closeManualEditor();
+            });
+
+          renderManualList();
           configContainer.appendChild(manualDiv);
         }
       }
@@ -944,6 +1045,9 @@
       div
         .querySelector(".btn-remove-source")
         .addEventListener("click", () => div.remove());
+
+      // Attach data reference for form submit
+      div.manualData = manualProducts;
 
       // Initial Render
       renderConfig();
@@ -1227,14 +1331,7 @@
           }
         } else if (type === "manual") {
           // Collect manual products
-          const prodRows = row.querySelectorAll(".manual-product-row");
-          const manualProducts = Array.from(prodRows).map((pRow) => ({
-            name: pRow.querySelector(".prod-name").value,
-            description: pRow.querySelector(".prod-desc").value,
-            endpointUrl: pRow.querySelector(".prod-url").value,
-            auth: pRow.querySelector(".prod-auth").value,
-          }));
-          sourceData.manualProducts = manualProducts;
+          sourceData.manualProducts = row.manualData || [];
         }
 
         return sourceData;

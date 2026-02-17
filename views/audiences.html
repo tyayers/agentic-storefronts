@@ -1,5 +1,11 @@
 <style>
   /* Reuse styles from main css where possible, specific overrides here */
+  @media (max-width: 1024px) {
+    .col-description,
+    .col-qualifiers {
+      display: none;
+    }
+  }
 </style>
 
 <div id="audience-view-container">
@@ -15,8 +21,8 @@
         gap: 1rem;
       "
     >
-      <div style="display: flex; gap: 1rem; align-items: center; flex: 1;">
-        <h3 style="white-space: nowrap;">Your Audiences</h3>
+      <div style="display: flex; gap: 1rem; align-items: center; flex: 1">
+        <h3 style="white-space: nowrap">Your Audiences</h3>
         <input
           type="text"
           id="audience-search"
@@ -50,15 +56,18 @@
         <thead>
           <tr>
             <th data-sort="name">
-              Name <span class="material-icons-round sort-icon">unfold_more</span>
+              Name
+              <span class="material-icons-round sort-icon">unfold_more</span>
             </th>
-            <th data-sort="description">
-              Description <span class="material-icons-round sort-icon">unfold_more</span>
+            <th data-sort="description" class="col-description">
+              Description
+              <span class="material-icons-round sort-icon">unfold_more</span>
             </th>
-            <th data-sort="qualifiers">
-              Qualifiers <span class="material-icons-round sort-icon">unfold_more</span>
+            <th data-sort="qualifiers" class="col-qualifiers">
+              Qualifiers
+              <span class="material-icons-round sort-icon">unfold_more</span>
             </th>
-            <th style="text-align: right;">Actions</th>
+            <th style="text-align: right">Actions</th>
           </tr>
         </thead>
         <tbody id="audience-table-body">
@@ -92,6 +101,33 @@
 
       <form id="audience-form">
         <input type="hidden" id="edit-id" />
+
+        <div style="margin-bottom: 1.5rem">
+          <label
+            style="
+              display: block;
+              margin-bottom: 0.5rem;
+              font-weight: 500;
+              font-size: 0.9rem;
+            "
+            >Audience Id</label
+          >
+          <input
+            type="text"
+            id="aud-id-display"
+            readonly
+            placeholder="Generated automatically..."
+            style="
+              width: 100%;
+              padding: 0.75rem;
+              border-radius: 0.5rem;
+              border: 1px solid var(--border-color);
+              background: var(--bg-card);
+              color: var(--text-secondary);
+              font-family: monospace;
+            "
+          />
+        </div>
 
         <div style="margin-bottom: 1.5rem">
           <label
@@ -231,9 +267,9 @@
     // --- State ---
     let audiences = JSON.parse(localStorage.getItem("audiences")) || [];
     let state = {
-        filter: '',
-        sortKey: 'name',
-        sortOrder: 'asc' // or 'desc'
+      filter: "",
+      sortKey: "name",
+      sortOrder: "asc", // or 'desc'
     };
 
     // --- Elements ---
@@ -247,6 +283,33 @@
     const editorTitle = document.getElementById("editor-title");
     const searchInput = document.getElementById("audience-search");
     const headers = document.querySelectorAll("th[data-sort]");
+
+    // --- Helpers ---
+    function slugify(text) {
+      return text
+        .toString()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^\w\-]+/g, "")
+        .replace(/\-\-+/g, "-")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "");
+    }
+
+    function generateId(name) {
+      const slug = slugify(name || "audience");
+      const random = Math.random().toString(36).substring(2, 6);
+      return `${slug}-${random}`;
+    }
+
+    const audIdDisplay = document.getElementById("aud-id-display");
+    const audNameInput = document.getElementById("aud-name");
+
+    audNameInput.addEventListener("input", (e) => {
+      if (!document.getElementById("edit-id").value) {
+        audIdDisplay.value = generateId(e.target.value);
+      }
+    });
 
     // --- Templates ---
     function createQualifierRow(data = {}) {
@@ -282,11 +345,11 @@
       const valueInput = div.querySelector(".qualifier-value");
 
       typeSelect.addEventListener("change", () => {
-          if (typeSelect.value === "email") {
-              valueInput.placeholder = "e.g. user@example.com";
-          } else {
-              valueInput.placeholder = "e.g. example.com";
-          }
+        if (typeSelect.value === "email") {
+          valueInput.placeholder = "e.g. user@example.com";
+        } else {
+          valueInput.placeholder = "e.g. example.com";
+        }
       });
 
       div
@@ -297,11 +360,15 @@
 
     function createTableRow(aud) {
       const tr = document.createElement("tr");
+      tr.style.cursor = "pointer";
 
       const qualCount = aud.qualifiers ? aud.qualifiers.length : 0;
       // Show first 2 qualifiers as preview
       const preview = aud.qualifiers
-        ? aud.qualifiers.slice(0, 2).map(q => `${q.value}`).join(", ") + (qualCount > 2 ? `, +${qualCount - 2} more` : "")
+        ? aud.qualifiers
+            .slice(0, 2)
+            .map((q) => `${q.value}`)
+            .join(", ") + (qualCount > 2 ? `, +${qualCount - 2} more` : "")
         : "";
 
       tr.innerHTML = `
@@ -311,10 +378,14 @@
                 <span style="font-weight: 500;">${aud.name}</span>
             </div>
           </td>
-          <td style="color: var(--text-secondary); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${aud.description || "—"}</td>
-          <td>
+          <td class="col-description" style="color: var(--text-secondary); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${
+            aud.description || "—"
+          }</td>
+          <td class="col-qualifiers">
              <div style="display: flex; flex-direction: column; gap: 2px;">
-                <span style="font-size: 0.85rem; color: var(--text-primary);">${preview || "—"}</span>
+                <span style="font-size: 0.85rem; color: var(--text-primary);">${
+                  preview || "—"
+                }</span>
                 <span style="font-size: 0.75rem; color: var(--text-secondary);">(${qualCount} Qualifiers)</span>
              </div>
           </td>
@@ -330,8 +401,14 @@
           </td>
       `;
 
-      tr.querySelector(".btn-edit").addEventListener("click", () => openEditor(aud));
-      tr.querySelector(".btn-delete").addEventListener("click", () => {
+      tr.addEventListener("click", () => openEditor(aud));
+
+      tr.querySelector(".btn-edit").addEventListener("click", (e) => {
+        e.stopPropagation();
+        openEditor(aud);
+      });
+      tr.querySelector(".btn-delete").addEventListener("click", (e) => {
+        e.stopPropagation();
         if (confirm("Are you sure you want to delete this audience?")) {
           deleteAudience(aud.id);
         }
@@ -345,58 +422,61 @@
       tableBody.innerHTML = "";
 
       // Filter
-      let displayData = audiences.filter(aud => {
-          const search = state.filter.toLowerCase();
-          return aud.name.toLowerCase().includes(search) ||
-                 (aud.description && aud.description.toLowerCase().includes(search));
+      let displayData = audiences.filter((aud) => {
+        const search = state.filter.toLowerCase();
+        return (
+          aud.name.toLowerCase().includes(search) ||
+          (aud.description && aud.description.toLowerCase().includes(search))
+        );
       });
 
       // Sort
       displayData.sort((a, b) => {
-          let valA, valB;
+        let valA, valB;
 
-          switch(state.sortKey) {
-              case 'name':
-                  valA = a.name.toLowerCase();
-                  valB = b.name.toLowerCase();
-                  break;
-              case 'description':
-                  valA = (a.description || '').toLowerCase();
-                  valB = (b.description || '').toLowerCase();
-                  break;
-              case 'qualifiers':
-                  valA = a.qualifiers ? a.qualifiers.length : 0;
-                  valB = b.qualifiers ? b.qualifiers.length : 0;
-                  break;
-              default:
-                  return 0;
-          }
+        switch (state.sortKey) {
+          case "name":
+            valA = a.name.toLowerCase();
+            valB = b.name.toLowerCase();
+            break;
+          case "description":
+            valA = (a.description || "").toLowerCase();
+            valB = (b.description || "").toLowerCase();
+            break;
+          case "qualifiers":
+            valA = a.qualifiers ? a.qualifiers.length : 0;
+            valB = b.qualifiers ? b.qualifiers.length : 0;
+            break;
+          default:
+            return 0;
+        }
 
-          if (valA < valB) return state.sortOrder === 'asc' ? -1 : 1;
-          if (valA > valB) return state.sortOrder === 'asc' ? 1 : -1;
-          return 0;
+        if (valA < valB) return state.sortOrder === "asc" ? -1 : 1;
+        if (valA > valB) return state.sortOrder === "asc" ? 1 : -1;
+        return 0;
       });
 
       // Update Headers
-      headers.forEach(th => {
-          const icon = th.querySelector('.sort-icon');
-          th.classList.remove('sorted');
-          icon.textContent = 'unfold_more'; // Default
+      headers.forEach((th) => {
+        const icon = th.querySelector(".sort-icon");
+        th.classList.remove("sorted");
+        icon.textContent = "unfold_more"; // Default
 
-          if (th.dataset.sort === state.sortKey) {
-              th.classList.add('sorted');
-              icon.textContent = state.sortOrder === 'asc' ? 'arrow_upward' : 'arrow_downward';
-          }
+        if (th.dataset.sort === state.sortKey) {
+          th.classList.add("sorted");
+          icon.textContent =
+            state.sortOrder === "asc" ? "arrow_upward" : "arrow_downward";
+        }
       });
 
       if (displayData.length === 0) {
         if (state.filter) {
-            tableContainer.style.display = "block";
-            tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No results found for "${state.filter}"</td></tr>`;
-            emptyState.style.display = "none";
+          tableContainer.style.display = "block";
+          tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No results found for "${state.filter}"</td></tr>`;
+          emptyState.style.display = "none";
         } else {
-            tableContainer.style.display = "none";
-            emptyState.style.display = "block";
+          tableContainer.style.display = "none";
+          emptyState.style.display = "block";
         }
       } else {
         tableContainer.style.display = "block";
@@ -408,13 +488,13 @@
     }
 
     function handleSort(key) {
-        if (state.sortKey === key) {
-            state.sortOrder = state.sortOrder === 'asc' ? 'desc' : 'asc';
-        } else {
-            state.sortKey = key;
-            state.sortOrder = 'asc';
-        }
-        renderList();
+      if (state.sortKey === key) {
+        state.sortOrder = state.sortOrder === "asc" ? "desc" : "asc";
+      } else {
+        state.sortKey = key;
+        state.sortOrder = "asc";
+      }
+      renderList();
     }
 
     function openEditor(aud = null) {
@@ -424,12 +504,14 @@
       // Reset form
       qualifiersContainer.innerHTML = "";
       document.getElementById("edit-id").value = "";
+      audIdDisplay.value = generateId("");
       document.getElementById("aud-name").value = "";
       document.getElementById("aud-desc").value = "";
 
       if (aud) {
         editorTitle.textContent = "Edit Audience";
         document.getElementById("edit-id").value = aud.id;
+        audIdDisplay.value = aud.id;
         document.getElementById("aud-name").value = aud.name;
         document.getElementById("aud-desc").value = aud.description || "";
         (aud.qualifiers || []).forEach((q) => {
@@ -462,23 +544,25 @@
       .getElementById("btn-add-audience")
       .addEventListener("click", () => openEditor());
 
-    document.getElementById("btn-add-qualifier").addEventListener("click", () => {
-      qualifiersContainer.appendChild(createQualifierRow());
-    });
+    document
+      .getElementById("btn-add-qualifier")
+      .addEventListener("click", () => {
+        qualifiersContainer.appendChild(createQualifierRow());
+      });
 
     document
       .getElementById("btn-cancel")
       .addEventListener("click", closeEditor);
 
     searchInput.addEventListener("input", (e) => {
-        state.filter = e.target.value;
-        renderList();
+      state.filter = e.target.value;
+      renderList();
     });
 
-    headers.forEach(th => {
-        th.addEventListener("click", () => {
-            handleSort(th.dataset.sort);
-        });
+    headers.forEach((th) => {
+      th.addEventListener("click", () => {
+        handleSort(th.dataset.sort);
+      });
     });
 
     form.addEventListener("submit", (e) => {
@@ -501,12 +585,17 @@
         // Update
         const index = audiences.findIndex((a) => a.id === id);
         if (index !== -1) {
-          audiences[index] = { ...audiences[index], name, description, qualifiers };
+          audiences[index] = {
+            ...audiences[index],
+            name,
+            description,
+            qualifiers,
+          };
         }
       } else {
         // Create
         const newAud = {
-          id: Date.now().toString(),
+          id: audIdDisplay.value,
           name,
           description,
           qualifiers,
