@@ -191,7 +191,24 @@
     id="storefront-editor-view"
     style="display: none; min-height: 100%; padding-bottom: 2rem"
   >
-    <div class="card" style="max-width: 800px; margin: 0 auto">
+    <div
+      class="card"
+      style="max-width: 800px; margin: 0 auto; position: relative"
+    >
+      <button
+        id="btn-close-editor"
+        style="
+          position: absolute;
+          top: 1rem;
+          right: 1rem;
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: var(--text-secondary);
+        "
+      >
+        <span class="material-icons-round">close</span>
+      </button>
       <h3 id="editor-title" style="margin-bottom: 1.5rem">Create Storefront</h3>
 
       <form id="storefront-form">
@@ -250,107 +267,149 @@
           />
         </div>
 
+        <!-- Authentication Section -->
         <div
           style="
-            background-color: var(--bg-card);
-            border-left: 4px solid var(--accent-color);
-            padding: 1rem;
-            border-radius: 4px;
             margin-bottom: 1.5rem;
-            font-size: 0.9rem;
-            color: var(--text-primary);
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
           "
         >
-          <div style="display: flex; align-items: flex-start; gap: 0.75rem">
-            <span
-              class="material-icons-round"
-              style="color: var(--accent-color); margin-top: 2px"
-              >info</span
+          <h4 style="margin-bottom: 1rem; font-size: 1rem">Authentication</h4>
+
+          <div style="margin-bottom: 1.5rem">
+            <label
+              style="
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+                font-size: 0.9rem;
+              "
+              >Type</label
             >
-            <div>
-              <strong style="display: block; margin-bottom: 0.25rem"
-                >Google Cloud Identity Platform</strong
-              >
-              <p
-                style="
-                  margin: 0 0 0.5rem 0;
-                  color: var(--text-secondary);
-                  line-height: 1.4;
-                "
-              >
-                Secure your storefront with enterprise-grade identity and access
-                management. Supports email/password, phone, and federated
-                identity providers (Google, Facebook, etc.).
-              </p>
-              <a
-                href="https://cloud.google.com/identity-platform/docs"
-                target="_blank"
-                style="
-                  color: var(--accent-color);
-                  text-decoration: none;
-                  font-weight: 500;
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 4px;
-                "
-              >
-                View Documentation
-                <span class="material-icons-round" style="font-size: 14px"
-                  >open_in_new</span
+            <select
+              id="sf-auth-type"
+              style="
+                width: 100%;
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                border: 1px solid var(--border-color);
+                background: var(--bg-card);
+                color: var(--text-primary);
+              "
+            >
+              <option value="demo">Demo (No Auth)</option>
+              <option value="identity-platform">
+                Google Cloud Identity Platform
+              </option>
+            </select>
+          </div>
+
+          <!-- Identity Platform Config Container -->
+          <div id="auth-config-identity-platform" style="display: none">
+            <div
+              style="
+                background-color: var(--bg-card);
+                border-left: 4px solid var(--accent-color);
+                padding: 1rem;
+                border-radius: 4px;
+                margin-bottom: 1.5rem;
+                font-size: 0.9rem;
+                color: var(--text-primary);
+              "
+            >
+              <div style="display: flex; align-items: flex-start; gap: 0.75rem">
+                <span
+                  class="material-icons-round"
+                  style="color: var(--accent-color); margin-top: 2px"
+                  >info</span
                 >
-              </a>
+                <div>
+                  <strong style="display: block; margin-bottom: 0.25rem"
+                    >Google Cloud Identity Platform</strong
+                  >
+                  <p
+                    style="
+                      margin: 0 0 0.5rem 0;
+                      color: var(--text-secondary);
+                      line-height: 1.4;
+                    "
+                  >
+                    Secure your storefront with enterprise-grade identity and
+                    access management. Supports email/password, phone, and
+                    federated identity providers (Google, Facebook, etc.).
+                  </p>
+                  <a
+                    href="https://cloud.google.com/identity-platform/docs"
+                    target="_blank"
+                    style="
+                      color: var(--accent-color);
+                      text-decoration: none;
+                      font-weight: 500;
+                      display: inline-flex;
+                      align-items: center;
+                      gap: 4px;
+                    "
+                  >
+                    View Documentation
+                    <span class="material-icons-round" style="font-size: 14px"
+                      >open_in_new</span
+                    >
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 1.5rem">
+              <label
+                style="
+                  display: block;
+                  margin-bottom: 0.5rem;
+                  font-weight: 500;
+                  font-size: 0.9rem;
+                "
+                >Identity Platform API Key</label
+              >
+              <input
+                type="text"
+                id="sf-api-key"
+                placeholder="AIza..."
+                style="
+                  width: 100%;
+                  padding: 0.75rem;
+                  border-radius: 0.5rem;
+                  border: 1px solid var(--border-color);
+                  background: var(--bg-body);
+                  color: var(--text-primary);
+                "
+              />
+            </div>
+
+            <div style="margin-bottom: 1.5rem">
+              <label
+                style="
+                  display: block;
+                  margin-bottom: 0.5rem;
+                  font-weight: 500;
+                  font-size: 0.9rem;
+                "
+                >Identity Platform Auth Domain</label
+              >
+              <input
+                type="text"
+                id="sf-auth-domain"
+                placeholder="project-id.firebaseapp.com"
+                style="
+                  width: 100%;
+                  padding: 0.75rem;
+                  border-radius: 0.5rem;
+                  border: 1px solid var(--border-color);
+                  background: var(--bg-body);
+                  color: var(--text-primary);
+                "
+              />
             </div>
           </div>
-        </div>
-
-        <div style="margin-bottom: 1.5rem">
-          <label
-            style="
-              display: block;
-              margin-bottom: 0.5rem;
-              font-weight: 500;
-              font-size: 0.9rem;
-            "
-            >Identity Platform API Key</label
-          >
-          <input
-            type="text"
-            id="sf-api-key"
-            placeholder="AIza..."
-            style="
-              width: 100%;
-              padding: 0.75rem;
-              border-radius: 0.5rem;
-              border: 1px solid var(--border-color);
-              background: var(--bg-body);
-              color: var(--text-primary);
-            "
-          />
-        </div>
-
-        <div style="margin-bottom: 1.5rem">
-          <label
-            style="
-              display: block;
-              margin-bottom: 0.5rem;
-              font-weight: 500;
-              font-size: 0.9rem;
-            "
-            >Identity Platform Auth Domain</label
-          >
-          <input
-            type="text"
-            id="sf-auth-domain"
-            placeholder="project-id.firebaseapp.com"
-            style="
-              width: 100%;
-              padding: 0.75rem;
-              border-radius: 0.5rem;
-              border: 1px solid var(--border-color);
-              background: var(--bg-body);
-              color: var(--text-primary);
-            "
-          />
         </div>
 
         <div
@@ -523,12 +582,21 @@
 
     const sfIdDisplay = document.getElementById("sf-id-display");
     const sfNameInput = document.getElementById("sf-name");
+    const sfAuthType = document.getElementById("sf-auth-type");
+    const authConfigIdentity = document.getElementById(
+      "auth-config-identity-platform",
+    );
 
     sfNameInput.addEventListener("input", (e) => {
       // Only auto-generate if creating (edit-id is empty)
       if (!document.getElementById("edit-id").value) {
         sfIdDisplay.value = generateId(e.target.value);
       }
+    });
+
+    sfAuthType.addEventListener("change", () => {
+      authConfigIdentity.style.display =
+        sfAuthType.value === "identity-platform" ? "block" : "none";
     });
 
     // --- Templates ---
@@ -1032,11 +1100,23 @@
       document.getElementById("sf-auth-domain").value = "";
       sfIdDisplay.value = generateId("");
 
+      // Default Auth State
+      sfAuthType.value = "demo";
+      authConfigIdentity.style.display = "none";
+
       if (sf) {
         editorTitle.textContent = "Edit Storefront";
         document.getElementById("edit-id").value = sf.id;
         sfIdDisplay.value = sf.id;
         document.getElementById("sf-name").value = sf.name;
+
+        // Handle Auth
+        const authType =
+          sf.authType || (sf.apiKey ? "identity-platform" : "demo");
+        sfAuthType.value = authType;
+        authConfigIdentity.style.display =
+          authType === "identity-platform" ? "block" : "none";
+
         document.getElementById("sf-api-key").value = sf.apiKey || "";
         document.getElementById("sf-auth-domain").value = sf.authDomain || "";
         (sf.sources || []).forEach((s) => {
@@ -1077,12 +1157,9 @@
       .getElementById("btn-cancel")
       .addEventListener("click", closeEditor);
 
-    // Close when clicking outside the form
-    editorView.addEventListener("click", (e) => {
-      if (e.target === editorView) {
-        closeEditor();
-      }
-    });
+    document
+      .getElementById("btn-close-editor")
+      .addEventListener("click", closeEditor);
 
     searchInput.addEventListener("input", (e) => {
       state.filter = e.target.value;
@@ -1100,8 +1177,15 @@
 
       const id = document.getElementById("edit-id").value;
       const name = document.getElementById("sf-name").value;
-      const apiKey = document.getElementById("sf-api-key").value;
-      const authDomain = document.getElementById("sf-auth-domain").value;
+      const authType = sfAuthType.value;
+      const apiKey =
+        authType === "identity-platform"
+          ? document.getElementById("sf-api-key").value
+          : null;
+      const authDomain =
+        authType === "identity-platform"
+          ? document.getElementById("sf-auth-domain").value
+          : null;
 
       // Collect sources
       const sourceRows = sourcesContainer.querySelectorAll(".source-row");
@@ -1156,6 +1240,7 @@
           storefronts[index] = {
             ...storefronts[index],
             name,
+            authType,
             apiKey,
             authDomain,
             sources,
@@ -1166,6 +1251,7 @@
         const newSf = {
           id: sfIdDisplay.value,
           name,
+          authType,
           apiKey,
           authDomain,
           sources,
