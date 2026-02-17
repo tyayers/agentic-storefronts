@@ -94,6 +94,21 @@
       display: none;
     }
   }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .fade-in-row {
+    animation: fadeIn 0.4s ease-out forwards;
+  }
 </style>
 
 <div id="storefront-view-container">
@@ -1505,7 +1520,11 @@
       .addEventListener("click", () => openEditor());
 
     document.getElementById("btn-add-source").addEventListener("click", () => {
-      sourcesContainer.appendChild(createSourceRow());
+      const row = createSourceRow();
+      row.classList.add("fade-in-row");
+      sourcesContainer.prepend(row);
+      // Optional: scroll to the new row if needed, though prepend usually puts it in view if at top
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
     });
 
     document
