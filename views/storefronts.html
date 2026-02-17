@@ -1118,12 +1118,12 @@
 
         // Handle Auth
         const authType =
-          sf.authType || (sf.apiKey ? "identity-platform" : "demo");
+          sf.authType || (sf.authApiKey ? "identity-platform" : "demo");
         sfAuthType.value = authType;
         authConfigIdentity.style.display =
           authType === "identity-platform" ? "block" : "none";
 
-        document.getElementById("sf-api-key").value = sf.apiKey || "";
+        document.getElementById("sf-api-key").value = sf.authApiKey || "";
         document.getElementById("sf-auth-domain").value = sf.authDomain || "";
 
         (sf.sources || []).forEach((s) => {
@@ -1185,7 +1185,7 @@
       const id = document.getElementById("edit-id").value;
       const name = document.getElementById("sf-name").value;
       const authType = sfAuthType.value;
-      const apiKey =
+      const authApiKey =
         authType === "identity-platform"
           ? document.getElementById("sf-api-key").value
           : null;
@@ -1248,7 +1248,7 @@
             ...storefronts[index],
             name,
             authType,
-            apiKey,
+            authApiKey,
             authDomain,
             sources,
           };
@@ -1259,12 +1259,14 @@
           id: sfIdDisplay.value,
           name,
           authType,
-          apiKey,
+          authApiKey,
           authDomain,
           sources,
         };
         storefronts.push(newSf);
       }
+
+      console.log(storefronts);
 
       saveData();
       renderList();
