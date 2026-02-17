@@ -617,6 +617,7 @@
           </div>
 
           <div
+            id="data-sources-info-box"
             style="
               background-color: var(--bg-card);
               border-left: 4px solid var(--accent-color);
@@ -768,7 +769,17 @@
     const templatePreview = document.getElementById("template-preview");
     const templateName = document.getElementById("template-name");
 
+    const dataSourcesInfoBox = document.getElementById("data-sources-info-box");
+
     // --- Helpers ---
+    function updateDataSourcesInfoVisibility() {
+      if (sourcesContainer.children.length === 0) {
+        dataSourcesInfoBox.style.display = "block";
+      } else {
+        dataSourcesInfoBox.style.display = "none";
+      }
+    }
+
     function slugify(text) {
       return text
         .toString()
@@ -1283,9 +1294,10 @@
 
       typeSelect.addEventListener("change", renderConfig);
 
-      div
-        .querySelector(".btn-remove-source")
-        .addEventListener("click", () => div.remove());
+      div.querySelector(".btn-remove-source").addEventListener("click", () => {
+        div.remove();
+        updateDataSourcesInfoVisibility();
+      });
 
       // Attach data reference for form submit
       div.manualData = manualProducts;
@@ -1497,6 +1509,8 @@
         // Add one empty source row by default
         sourcesContainer.appendChild(createSourceRow());
       }
+
+      updateDataSourcesInfoVisibility();
     }
 
     function closeEditor() {
@@ -1525,6 +1539,7 @@
       sourcesContainer.prepend(row);
       // Optional: scroll to the new row if needed, though prepend usually puts it in view if at top
       row.scrollIntoView({ behavior: "smooth", block: "center" });
+      updateDataSourcesInfoVisibility();
     });
 
     document
