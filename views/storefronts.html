@@ -87,6 +87,13 @@
   input:checked + .slider:before {
     transform: translateX(20px);
   }
+
+  @media (max-width: 1024px) {
+    .col-types,
+    .col-sources {
+      display: none;
+    }
+  }
 </style>
 
 <div id="storefront-view-container">
@@ -144,11 +151,11 @@
               Id
               <span class="material-icons-round sort-icon">unfold_more</span>
             </th>
-            <th data-sort="types">
+            <th data-sort="types" class="col-types">
               Types
               <span class="material-icons-round sort-icon">unfold_more</span>
             </th>
-            <th data-sort="sources">
+            <th data-sort="sources" class="col-sources">
               Sources
               <span class="material-icons-round sort-icon">unfold_more</span>
             </th>
@@ -900,8 +907,8 @@
             </div>
           </td>
           <td style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">${sf.id}</td>
-          <td style="color: var(--text-secondary);">${types || "—"}</td>
-          <td>
+          <td class="col-types" style="color: var(--text-secondary);">${types || "—"}</td>
+          <td class="col-sources">
             <span style="background: var(--bg-body); padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; border: 1px solid var(--border-color);">${sourceCount}</span>
           </td>
           <td>
