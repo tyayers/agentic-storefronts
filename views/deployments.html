@@ -323,6 +323,22 @@
         >
           <button
             type="button"
+            id="btn-delete-deployment"
+            style="
+              background: transparent;
+              border: 1px solid #ef4444;
+              color: #ef4444;
+              padding: 0.5rem 1.5rem;
+              border-radius: 0.5rem;
+              cursor: pointer;
+              margin-right: auto;
+              display: none;
+            "
+          >
+            Delete Deployment
+          </button>
+          <button
+            type="button"
             id="btn-cancel"
             style="
               background: transparent;
@@ -385,6 +401,9 @@
     const urlContainer = document.getElementById("url-container");
     const depUrlInput = document.getElementById("dep-url");
     const btnOpenUrl = document.getElementById("btn-open-url");
+    const btnDeleteDeployment = document.getElementById(
+      "btn-delete-deployment",
+    );
 
     // --- Helpers ---
     function slugify(text) {
@@ -594,7 +613,8 @@
       // Reset form
       document.getElementById("edit-id").value = "";
       depRegionInput.value = "us-central1";
-      depStatusInput.value = "STOPPED";
+      depStatusInput.value = "DEPLOYED";
+      depStatusInput.disabled = true;
 
       // Default ID based on first storefront if available
       if (
@@ -608,7 +628,6 @@
       }
 
       updateUrlVisibility();
-      depStatusInput.disabled = true; // Disable by default for new
 
       if (dep) {
         editorTitle.textContent = "Edit Deployment";
@@ -616,11 +635,19 @@
         depIdDisplay.value = dep.id;
         depRegionInput.value = dep.region;
         depStorefrontInput.value = dep.storefrontId;
-        depStatusInput.value = dep.status;
-        depStatusInput.disabled = false; // Enable for edit
+        depStatusInput.value = "DEPLOYED"; // Always DEPLOYED
         updateUrlVisibility();
+
+        btnDeleteDeployment.style.display = "block";
+        btnDeleteDeployment.onclick = () => {
+          if (confirm("Are you sure you want to delete this deployment?")) {
+            deleteDeployment(dep.id);
+            closeEditor();
+          }
+        };
       } else {
         editorTitle.textContent = "Create Deployment";
+        btnDeleteDeployment.style.display = "none";
       }
     }
 
@@ -669,10 +696,10 @@
       const id = document.getElementById("edit-id").value;
       const region = depRegionInput.value;
       const storefrontId = depStorefrontInput.value;
-      const status = depStatusInput.value;
+      const status = "DEPLOYED"; // Always DEPLOYED
 
       const newId = id || depIdDisplay.value;
-      const url = status === "DEPLOYED" ? generateUrl(newId) : null;
+      const url = generateUrl(newId);
 
       if (id) {
         // Update
