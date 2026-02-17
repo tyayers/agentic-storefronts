@@ -410,6 +410,33 @@ body {
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
 }
 
+/* Sidebar Toggle & Overlay */
+.sidebar-toggle {
+  display: none; /* Hidden on desktop */
+  margin-right: 1rem;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 9; /* Behind sidebar (10) but above everything else */
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease;
+  backdrop-filter: blur(2px);
+}
+
+.sidebar-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .sidebar {
@@ -422,6 +449,10 @@ body {
 
   .sidebar.open {
     left: 0;
+  }
+
+  .sidebar-toggle {
+    display: flex; /* Show on mobile */
   }
 
   .app-container {

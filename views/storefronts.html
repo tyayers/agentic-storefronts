@@ -294,6 +294,7 @@
   (function () {
     // --- State ---
     let storefronts = JSON.parse(localStorage.getItem("storefronts")) || [];
+    let audiences = JSON.parse(localStorage.getItem("audiences")) || [];
     let state = {
       filter: "",
       sortKey: "name",
@@ -363,6 +364,10 @@
       const selectedProducts = data.selectedProducts || []; // For Vertex/Apigee if enableAll is false
       const manualProducts = data.manualProducts || []; // For Manual
 
+      // Audience Config
+      let allUsers = data.allUsers !== undefined ? data.allUsers : true;
+      const selectedAudiences = data.selectedAudiences || [];
+
       // Local state for this row's product list
       let productFilter = "";
       let productSortOrder = "asc";
@@ -386,11 +391,103 @@
                     </div>
                 </div>
 
+                <!-- Audience Configuration -->
+                <div style="border-top: 1px solid var(--border-color); padding: 1rem 0; margin-bottom: 0.5rem;">
+                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <div>
+                             <span style="font-size: 0.9rem; font-weight: 500;">Access Control</span>
+                             <div style="font-size: 0.75rem; color: var(--text-secondary);">Who can see products from this source?</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.85rem; color: var(--text-secondary);">All Users</span>
+                            <label class="switch">
+                                <input type="checkbox" class="all-users-switch" ${allUsers ? "checked" : ""}>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="audience-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                        <!-- Audiences injected here -->
+                    </div>
+                     <div class="no-audiences-msg" style="display: none; color: var(--text-secondary); font-size: 0.8rem; font-style: italic;">No audiences defined. Create one in the Audiences tab.</div>
+                </div>
+
                 <!-- Config Container -->
                 <div class="config-container" style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
                     <!-- Content injected by JS -->
                 </div>
             `;
+
+      // Audience Logic
+      const allUsersSwitch = div.querySelector(".all-users-switch");
+      const audienceList = div.querySelector(".audience-list");
+      const noAudiencesMsg = div.querySelector(".no-audiences-msg");
+
+      function renderAudiences() {
+        audienceList.innerHTML = "";
+        if (audiences.length === 0) {
+          noAudiencesMsg.style.display = "block";
+          return;
+        }
+        noAudiencesMsg.style.display = "none";
+
+        audiences.forEach((aud) => {
+          const label = document.createElement("label");
+          label.className = "service-chip"; // Reuse chip style
+          const isSelected = selectedAudiences.includes(aud.id);
+
+          label.innerHTML = `
+                    <input type="checkbox" value="${aud.id}" ${isSelected ? "checked" : ""}>
+                    <span>${aud.name}</span>
+                `;
+
+          const cb = label.querySelector("input");
+          cb.addEventListener("change", (e) => {
+            if (e.target.checked) {
+              // If checking an audience, turn OFF All Users
+              if (allUsers) {
+                allUsers = false;
+                allUsersSwitch.checked = false;
+                data.allUsers = false;
+                // We don't need to clear selectedAudiences here because we are adding to it
+              }
+
+              if (!selectedAudiences.includes(aud.id))
+                selectedAudiences.push(aud.id);
+            } else {
+              const idx = selectedAudiences.indexOf(aud.id);
+              if (idx > -1) selectedAudiences.splice(idx, 1);
+
+              // If unchecking leaves no audiences selected, turn ON All Users
+              if (selectedAudiences.length === 0) {
+                allUsers = true;
+                allUsersSwitch.checked = true;
+                data.allUsers = true;
+              }
+            }
+            data.selectedAudiences = selectedAudiences;
+            // We don't re-render here to avoid losing focus/state, just update data
+            // But if we want to update other chips visual state based on logic (none for now)
+          });
+
+          audienceList.appendChild(label);
+        });
+      }
+
+      allUsersSwitch.addEventListener("change", (e) => {
+        allUsers = e.target.checked;
+        data.allUsers = allUsers;
+
+        if (allUsers) {
+          // If All Users is ON, clear selected audiences
+          selectedAudiences.length = 0; // Clear array
+          data.selectedAudiences = selectedAudiences;
+          renderAudiences(); // Re-render to uncheck boxes
+        }
+      });
+
+      renderAudiences();
 
       const typeSelect = div.querySelector(".source-type");
       const configContainer = div.querySelector(".config-container");
@@ -782,7 +879,19 @@
       const sources = Array.from(sourceRows).map((row) => {
         const sourceName = row.querySelector(".source-name").value;
         const type = row.querySelector(".source-type").value;
-        let sourceData = { name: sourceName, type };
+
+        // Capture Audience Config
+        const allUsers = row.querySelector(".all-users-switch").checked;
+        const selectedAudiences = Array.from(
+          row.querySelectorAll(".audience-list input:checked"),
+        ).map((cb) => cb.value);
+
+        let sourceData = {
+          name: sourceName,
+          type,
+          allUsers,
+          selectedAudiences,
+        };
 
         if (type === "vertex" || type === "apigee") {
           const enableAll = row.querySelector(".enable-all-switch").checked;

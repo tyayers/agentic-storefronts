@@ -53,6 +53,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const themeToggleBtn = document.getElementById("theme-toggle");
   const themeIcon = themeToggleBtn.querySelector("span");
 
+  const sidebarToggle = document.getElementById("sidebar-toggle");
+  const sidebar = document.querySelector(".sidebar");
+  const sidebarOverlay = document.getElementById("sidebar-overlay");
+
   // --- Initialization ---
   function init() {
     // Auth Check
@@ -64,6 +68,22 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("hashchange", handleRoute);
 
     // If no hash, default to dashboard and only if logged in (logic handled in checkAuth)
+  }
+
+  // --- Sidebar Logic ---
+  function toggleSidebar() {
+    const isOpen = sidebar.classList.contains("open");
+    if (isOpen) {
+      closeSidebar();
+    } else {
+      sidebar.classList.add("open");
+      sidebarOverlay.classList.add("visible");
+    }
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove("open");
+    sidebarOverlay.classList.remove("visible");
   }
 
   // --- Auth Logic ---
@@ -156,6 +176,11 @@ document.addEventListener("DOMContentLoaded", () => {
         `,
       )
       .join("");
+
+    // Add click listeners to close sidebar on mobile selection
+    navMenu.querySelectorAll(".nav-item").forEach((item) => {
+      item.addEventListener("click", closeSidebar);
+    });
   }
 
   function updateActiveNavLink(routeId) {
@@ -238,6 +263,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Event Listeners ---
   themeToggleBtn.addEventListener("click", toggleTheme);
+
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener("click", toggleSidebar);
+  }
+
+  if (sidebarOverlay) {
+    sidebarOverlay.addEventListener("click", closeSidebar);
+  }
 
   // Start App
   init();
