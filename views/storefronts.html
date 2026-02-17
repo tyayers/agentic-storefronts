@@ -431,39 +431,145 @@
           </div>
         </div>
 
+        <!-- Frontend Template Section -->
         <div
           style="
-            background-color: var(--bg-card);
-            border-left: 4px solid var(--accent-color);
-            padding: 1rem;
-            border-radius: 4px;
             margin-bottom: 1.5rem;
-            font-size: 0.9rem;
-            color: var(--text-primary);
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
           "
         >
-          <div style="display: flex; align-items: flex-start; gap: 0.75rem">
-            <span
-              class="material-icons-round"
-              style="color: var(--accent-color); margin-top: 2px"
-              >info</span
+          <h4 style="margin-bottom: 1rem; font-size: 1rem">
+            Frontend Template
+          </h4>
+
+          <div style="margin-bottom: 1rem">
+            <label
+              style="
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+                font-size: 0.9rem;
+              "
+              >Custom GitHub Repository URL</label
             >
-            <div>
-              <strong style="display: block; margin-bottom: 0.25rem"
-                >Data Sources</strong
-              >
-              <p
+            <input
+              type="text"
+              id="sf-template-url"
+              placeholder="https://github.com/username/repo"
+              style="
+                width: 100%;
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                border: 1px solid var(--border-color);
+                background: var(--bg-body);
+                color: var(--text-primary);
+              "
+            />
+            <p
+              style="
+                font-size: 0.8rem;
+                color: var(--text-secondary);
+                margin-top: 0.25rem;
+              "
+            >
+              Leave empty to use a built-in template.
+            </p>
+          </div>
+
+          <div
+            id="builtin-templates-container"
+            style="
+              background: var(--bg-card);
+              border: 1px solid var(--border-color);
+              border-radius: 0.5rem;
+              padding: 1rem;
+              transition: opacity 0.3s ease;
+            "
+          >
+            <label
+              style="
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+                font-size: 0.9rem;
+              "
+              >Built-in Templates</label
+            >
+
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 1rem;
+              "
+            >
+              <button
+                type="button"
+                id="btn-prev-template"
                 style="
-                  margin: 0 0 0.5rem 0;
-                  color: var(--text-secondary);
-                  line-height: 1.4;
+                  background: var(--bg-body);
+                  border: 1px solid var(--border-color);
+                  border-radius: 50%;
+                  width: 32px;
+                  height: 32px;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: var(--text-primary);
                 "
               >
-                Connect your storefront to products and APIs. Supported sources
-                include <strong>Vertex AI Agents</strong>,
-                <strong>Apigee API Products</strong>, and
-                <strong>Manual</strong> entry.
-              </p>
+                <span class="material-icons-round">chevron_left</span>
+              </button>
+
+              <div style="flex: 1; text-align: center">
+                <div
+                  id="template-preview"
+                  style="
+                    height: 120px;
+                    background: var(--bg-body);
+                    border-radius: 0.5rem;
+                    margin-bottom: 0.5rem;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--text-secondary);
+                    font-size: 2rem;
+                    font-weight: bold;
+                    overflow: hidden;
+                    position: relative;
+                  "
+                >
+                  <!-- Image or Placeholder -->
+                </div>
+                <div
+                  id="template-name"
+                  style="font-weight: 500; color: var(--text-primary)"
+                >
+                  Template Name
+                </div>
+              </div>
+
+              <button
+                type="button"
+                id="btn-next-template"
+                style="
+                  background: var(--bg-body);
+                  border: 1px solid var(--border-color);
+                  border-radius: 50%;
+                  width: 32px;
+                  height: 32px;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: var(--text-primary);
+                "
+              >
+                <span class="material-icons-round">chevron_right</span>
+              </button>
             </div>
           </div>
         </div>
@@ -493,6 +599,43 @@
             >
               + Add Source
             </button>
+          </div>
+
+          <div
+            style="
+              background-color: var(--bg-card);
+              border-left: 4px solid var(--accent-color);
+              padding: 1rem;
+              border-radius: 4px;
+              margin-bottom: 1.5rem;
+              font-size: 0.9rem;
+              color: var(--text-primary);
+            "
+          >
+            <div style="display: flex; align-items: flex-start; gap: 0.75rem">
+              <span
+                class="material-icons-round"
+                style="color: var(--accent-color); margin-top: 2px"
+                >info</span
+              >
+              <div>
+                <strong style="display: block; margin-bottom: 0.25rem"
+                  >Data Sources</strong
+                >
+                <p
+                  style="
+                    margin: 0 0 0.5rem 0;
+                    color: var(--text-secondary);
+                    line-height: 1.4;
+                  "
+                >
+                  Connect your storefront to products and APIs. Supported
+                  sources include <strong>Vertex AI Agents & Models</strong>,
+                  <strong>Apigee API Products & Tools</strong>, and
+                  <strong>Manual</strong> entry.
+                </p>
+              </div>
+            </div>
           </div>
 
           <div
@@ -549,15 +692,6 @@
 
 <script>
   (function () {
-    // --- State ---
-    let storefronts = JSON.parse(localStorage.getItem("storefronts")) || [];
-    let audiences = JSON.parse(localStorage.getItem("audiences")) || [];
-    let state = {
-      filter: "",
-      sortKey: "name",
-      sortOrder: "asc", // or 'desc'
-    };
-
     // --- Mock Data ---
     const MOCK_PRODUCTS = [
       { id: "p1", name: "Product A" },
@@ -566,6 +700,37 @@
       { id: "p4", name: "Product D" },
       { id: "p5", name: "Product E" },
     ];
+
+    const BUILTIN_TEMPLATES = [
+      {
+        id: "modern-shop",
+        name: "Modern Shop",
+        color: "#6366f1",
+        image: null,
+      },
+      {
+        id: "classic-boutique",
+        name: "Classic Boutique",
+        color: "#ec4899",
+        image: null,
+      },
+      {
+        id: "tech-hub",
+        name: "Tech Hub",
+        color: "#10b981",
+        image: null,
+      },
+    ];
+
+    // --- State ---
+    let storefronts = JSON.parse(localStorage.getItem("storefronts")) || [];
+    let audiences = JSON.parse(localStorage.getItem("audiences")) || [];
+    let state = {
+      filter: "",
+      sortKey: "name",
+      sortOrder: "asc", // or 'desc'
+      currentTemplateIndex: 0,
+    };
 
     // --- Elements ---
     const listView = document.getElementById("storefront-list-view");
@@ -578,6 +743,15 @@
     const editorTitle = document.getElementById("editor-title");
     const searchInput = document.getElementById("storefront-search");
     const headers = document.querySelectorAll("th[data-sort]");
+
+    const sfTemplateUrl = document.getElementById("sf-template-url");
+    const builtinTemplatesContainer = document.getElementById(
+      "builtin-templates-container",
+    );
+    const btnPrevTemplate = document.getElementById("btn-prev-template");
+    const btnNextTemplate = document.getElementById("btn-next-template");
+    const templatePreview = document.getElementById("template-preview");
+    const templateName = document.getElementById("template-name");
 
     // --- Helpers ---
     function slugify(text) {
@@ -615,6 +789,39 @@
       authConfigIdentity.style.display =
         sfAuthType.value === "identity-platform" ? "block" : "none";
     });
+
+    // --- Template Logic ---
+    function renderTemplate() {
+      const t = BUILTIN_TEMPLATES[state.currentTemplateIndex];
+      // Use color as placeholder
+      templatePreview.style.backgroundColor = t.color;
+      templatePreview.innerHTML = `<span style="color: white; font-size: 2rem;">${t.name.charAt(0)}</span>`;
+      templateName.textContent = t.name;
+
+      // Dim if custom URL is set
+      if (sfTemplateUrl.value.trim()) {
+        builtinTemplatesContainer.style.opacity = "0.5";
+        builtinTemplatesContainer.style.pointerEvents = "none";
+      } else {
+        builtinTemplatesContainer.style.opacity = "1";
+        builtinTemplatesContainer.style.pointerEvents = "auto";
+      }
+    }
+
+    btnPrevTemplate.addEventListener("click", () => {
+      state.currentTemplateIndex =
+        (state.currentTemplateIndex - 1 + BUILTIN_TEMPLATES.length) %
+        BUILTIN_TEMPLATES.length;
+      renderTemplate();
+    });
+
+    btnNextTemplate.addEventListener("click", () => {
+      state.currentTemplateIndex =
+        (state.currentTemplateIndex + 1) % BUILTIN_TEMPLATES.length;
+      renderTemplate();
+    });
+
+    sfTemplateUrl.addEventListener("input", renderTemplate);
 
     // --- Templates ---
     function createSourceRow(data = {}) {
@@ -1234,6 +1441,11 @@
       sfAuthType.value = "demo";
       authConfigIdentity.style.display = "none";
 
+      // Reset Template State
+      sfTemplateUrl.value = "";
+      state.currentTemplateIndex = 0;
+      renderTemplate();
+
       if (sf) {
         editorTitle.textContent = "Edit Storefront";
         document.getElementById("edit-id").value = sf.id;
@@ -1241,6 +1453,16 @@
         document.getElementById("sf-name").value = sf.name;
         document.getElementById("sf-support-mcp").checked =
           sf.supportMcp || false;
+
+        // Template State
+        sfTemplateUrl.value = sf.templateUrl || "";
+        if (sf.templateId) {
+          const idx = BUILTIN_TEMPLATES.findIndex(
+            (t) => t.id === sf.templateId,
+          );
+          state.currentTemplateIndex = idx > -1 ? idx : 0;
+        }
+        renderTemplate();
 
         // Handle Auth
         const authType =
@@ -1321,6 +1543,10 @@
           ? document.getElementById("sf-auth-domain").value
           : null;
 
+      // Template Data
+      const templateUrl = sfTemplateUrl.value.trim();
+      const templateId = BUILTIN_TEMPLATES[state.currentTemplateIndex].id;
+
       // Collect sources
       const sourceRows = sourcesContainer.querySelectorAll(".source-row");
       const sources = Array.from(sourceRows).map((row) => {
@@ -1371,6 +1597,8 @@
             authType,
             authApiKey,
             authDomain,
+            templateUrl,
+            templateId,
             sources,
           };
         }
@@ -1383,6 +1611,8 @@
           authType,
           authApiKey,
           authDomain,
+          templateUrl,
+          templateId,
           sources,
         };
         storefronts.push(newSf);
