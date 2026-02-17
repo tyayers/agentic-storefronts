@@ -130,6 +130,39 @@ document.addEventListener("DOMContentLoaded", () => {
     checkAuth();
   };
 
+  // --- OAuth Logic ---
+  // let tokenClient;
+  // const CLIENT_ID =
+  //   "609874082793-0ad22eutlkcrrs0uehm8vekut6j07u2j.apps.googleusercontent.com";
+
+  // window.getGcpAccessToken = () => {
+  //   return new Promise((resolve, reject) => {
+  //     if (typeof google === "undefined") {
+  //       reject("Google Identity Services not loaded");
+  //       return;
+  //     }
+
+  //     if (!tokenClient) {
+  //       tokenClient = google.accounts.oauth2.initTokenClient({
+  //         client_id:
+  //           "609874082793-0ad22eutlkcrrs0uehm8vekut6j07u2j.apps.googleusercontent.com",
+  //         scope: "https://www.googleapis.com/auth/cloud-platform",
+  //         callback: "", // Placeholder, set dynamically
+  //       });
+  //     }
+
+  //     tokenClient.callback = (resp) => {
+  //       if (resp.error !== undefined) {
+  //         reject(resp);
+  //       } else {
+  //         resolve(resp.access_token);
+  //       }
+  //     };
+
+  //     tokenClient.requestAccessToken({ prompt: "consent" });
+  //   });
+  // };
+
   function decodeJwt(token) {
     var base64Url = token.split(".")[1];
     var base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");

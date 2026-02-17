@@ -140,6 +140,10 @@
               Name
               <span class="material-icons-round sort-icon">unfold_more</span>
             </th>
+            <th data-sort="id">
+              Id
+              <span class="material-icons-round sort-icon">unfold_more</span>
+            </th>
             <th data-sort="types">
               Types
               <span class="material-icons-round sort-icon">unfold_more</span>
@@ -176,12 +180,42 @@
   </div>
 
   <!-- Editor View (Hidden by default) -->
-  <div id="storefront-editor-view" style="display: none">
+  <div
+    id="storefront-editor-view"
+    style="display: none; min-height: 100%; padding-bottom: 2rem"
+  >
     <div class="card" style="max-width: 800px; margin: 0 auto">
       <h3 id="editor-title" style="margin-bottom: 1.5rem">Create Storefront</h3>
 
       <form id="storefront-form">
         <input type="hidden" id="edit-id" />
+
+        <div style="margin-bottom: 1.5rem">
+          <label
+            style="
+              display: block;
+              margin-bottom: 0.5rem;
+              font-weight: 500;
+              font-size: 0.9rem;
+            "
+            >Storefront Id</label
+          >
+          <input
+            type="text"
+            id="sf-id-display"
+            readonly
+            placeholder="Generated automatically..."
+            style="
+              width: 100%;
+              padding: 0.75rem;
+              border-radius: 0.5rem;
+              border: 1px solid var(--border-color);
+              background: var(--bg-card);
+              color: var(--text-secondary);
+              font-family: monospace;
+            "
+          />
+        </div>
 
         <div style="margin-bottom: 1.5rem">
           <label
@@ -207,6 +241,146 @@
               color: var(--text-primary);
             "
           />
+        </div>
+
+        <div
+          style="
+            background-color: var(--bg-card);
+            border-left: 4px solid var(--accent-color);
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+          "
+        >
+          <div style="display: flex; align-items: flex-start; gap: 0.75rem">
+            <span
+              class="material-icons-round"
+              style="color: var(--accent-color); margin-top: 2px"
+              >info</span
+            >
+            <div>
+              <strong style="display: block; margin-bottom: 0.25rem"
+                >Google Cloud Identity Platform</strong
+              >
+              <p
+                style="
+                  margin: 0 0 0.5rem 0;
+                  color: var(--text-secondary);
+                  line-height: 1.4;
+                "
+              >
+                Secure your storefront with enterprise-grade identity and access
+                management. Supports email/password, phone, and federated
+                identity providers (Google, Facebook, etc.).
+              </p>
+              <a
+                href="https://cloud.google.com/identity-platform/docs"
+                target="_blank"
+                style="
+                  color: var(--accent-color);
+                  text-decoration: none;
+                  font-weight: 500;
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 4px;
+                "
+              >
+                View Documentation
+                <span class="material-icons-round" style="font-size: 14px"
+                  >open_in_new</span
+                >
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem">
+          <label
+            style="
+              display: block;
+              margin-bottom: 0.5rem;
+              font-weight: 500;
+              font-size: 0.9rem;
+            "
+            >Identity Platform API Key</label
+          >
+          <input
+            type="text"
+            id="sf-api-key"
+            placeholder="AIza..."
+            style="
+              width: 100%;
+              padding: 0.75rem;
+              border-radius: 0.5rem;
+              border: 1px solid var(--border-color);
+              background: var(--bg-body);
+              color: var(--text-primary);
+            "
+          />
+        </div>
+
+        <div style="margin-bottom: 1.5rem">
+          <label
+            style="
+              display: block;
+              margin-bottom: 0.5rem;
+              font-weight: 500;
+              font-size: 0.9rem;
+            "
+            >Identity Platform Auth Domain</label
+          >
+          <input
+            type="text"
+            id="sf-auth-domain"
+            placeholder="project-id.firebaseapp.com"
+            style="
+              width: 100%;
+              padding: 0.75rem;
+              border-radius: 0.5rem;
+              border: 1px solid var(--border-color);
+              background: var(--bg-body);
+              color: var(--text-primary);
+            "
+          />
+        </div>
+
+        <div
+          style="
+            background-color: var(--bg-card);
+            border-left: 4px solid var(--accent-color);
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+          "
+        >
+          <div style="display: flex; align-items: flex-start; gap: 0.75rem">
+            <span
+              class="material-icons-round"
+              style="color: var(--accent-color); margin-top: 2px"
+              >info</span
+            >
+            <div>
+              <strong style="display: block; margin-bottom: 0.25rem"
+                >Data Sources</strong
+              >
+              <p
+                style="
+                  margin: 0 0 0.5rem 0;
+                  color: var(--text-secondary);
+                  line-height: 1.4;
+                "
+              >
+                Connect your storefront to products and APIs. Supported sources
+                include <strong>Vertex AI Agents</strong>,
+                <strong>Apigee API Products</strong>, and
+                <strong>Manual</strong> entry.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div style="margin-bottom: 1.5rem">
@@ -321,6 +495,34 @@
     const editorTitle = document.getElementById("editor-title");
     const searchInput = document.getElementById("storefront-search");
     const headers = document.querySelectorAll("th[data-sort]");
+
+    // --- Helpers ---
+    function slugify(text) {
+      return text
+        .toString()
+        .toLowerCase()
+        .replace(/\s+/g, "-") // Replace spaces with -
+        .replace(/[^\w\-]+/g, "") // Remove all non-word chars
+        .replace(/\-\-+/g, "-") // Replace multiple - with single -
+        .replace(/^-+/, "") // Trim - from start of text
+        .replace(/-+$/, ""); // Trim - from end of text
+    }
+
+    function generateId(name) {
+      const slug = slugify(name || "storefront");
+      const random = Math.random().toString(36).substring(2, 6);
+      return `${slug}-${random}`;
+    }
+
+    const sfIdDisplay = document.getElementById("sf-id-display");
+    const sfNameInput = document.getElementById("sf-name");
+
+    sfNameInput.addEventListener("input", (e) => {
+      // Only auto-generate if creating (edit-id is empty)
+      if (!document.getElementById("edit-id").value) {
+        sfIdDisplay.value = generateId(e.target.value);
+      }
+    });
 
     // --- Templates ---
     function createManualProductRow(productData = {}) {
@@ -697,6 +899,7 @@
                 <span style="font-weight: 500;">${sf.name}</span>
             </div>
           </td>
+          <td style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">${sf.id}</td>
           <td style="color: var(--text-secondary);">${types || "—"}</td>
           <td>
             <span style="background: var(--bg-body); padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; border: 1px solid var(--border-color);">${sourceCount}</span>
@@ -744,6 +947,10 @@
           case "name":
             valA = a.name.toLowerCase();
             valB = b.name.toLowerCase();
+            break;
+          case "id":
+            valA = a.id.toLowerCase();
+            valB = b.id.toLowerCase();
             break;
           case "types":
             // Basic sort by first type string
@@ -814,11 +1021,17 @@
       sourcesContainer.innerHTML = "";
       document.getElementById("edit-id").value = "";
       document.getElementById("sf-name").value = "";
+      document.getElementById("sf-api-key").value = "";
+      document.getElementById("sf-auth-domain").value = "";
+      sfIdDisplay.value = generateId("");
 
       if (sf) {
         editorTitle.textContent = "Edit Storefront";
         document.getElementById("edit-id").value = sf.id;
+        sfIdDisplay.value = sf.id;
         document.getElementById("sf-name").value = sf.name;
+        document.getElementById("sf-api-key").value = sf.apiKey || "";
+        document.getElementById("sf-auth-domain").value = sf.authDomain || "";
         (sf.sources || []).forEach((s) => {
           sourcesContainer.appendChild(createSourceRow(s));
         });
@@ -857,6 +1070,13 @@
       .getElementById("btn-cancel")
       .addEventListener("click", closeEditor);
 
+    // Close when clicking outside the form
+    editorView.addEventListener("click", (e) => {
+      if (e.target === editorView) {
+        closeEditor();
+      }
+    });
+
     searchInput.addEventListener("input", (e) => {
       state.filter = e.target.value;
       renderList();
@@ -873,6 +1093,8 @@
 
       const id = document.getElementById("edit-id").value;
       const name = document.getElementById("sf-name").value;
+      const apiKey = document.getElementById("sf-api-key").value;
+      const authDomain = document.getElementById("sf-auth-domain").value;
 
       // Collect sources
       const sourceRows = sourcesContainer.querySelectorAll(".source-row");
@@ -924,13 +1146,21 @@
         // Update
         const index = storefronts.findIndex((s) => s.id === id);
         if (index !== -1) {
-          storefronts[index] = { ...storefronts[index], name, sources };
+          storefronts[index] = {
+            ...storefronts[index],
+            name,
+            apiKey,
+            authDomain,
+            sources,
+          };
         }
       } else {
         // Create
         const newSf = {
-          id: Date.now().toString(),
+          id: sfIdDisplay.value,
           name,
+          apiKey,
+          authDomain,
           sources,
         };
         storefronts.push(newSf);
