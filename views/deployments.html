@@ -1,0 +1,709 @@
+<style>
+  /* Status Badges */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .status-deployed {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+
+  .status-stopped {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+
+  @media (max-width: 1024px) {
+    .col-id,
+    .col-region {
+      display: none;
+    }
+  }
+</style>
+
+<div id="deployment-view-container">
+  <!-- List View -->
+  <div id="deployment-list-view">
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      "
+    >
+      <div style="display: flex; gap: 1rem; align-items: center; flex: 1">
+        <h3 style="white-space: nowrap">Your Deployments</h3>
+        <input
+          type="text"
+          id="deployment-search"
+          class="search-input"
+          placeholder="Search deployments..."
+        />
+      </div>
+
+      <button
+        id="btn-add-deployment"
+        style="
+          background: var(--accent-color);
+          color: white;
+          border: none;
+          padding: 0.5rem 1rem;
+          border-radius: 0.5rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          white-space: nowrap;
+        "
+      >
+        <span class="material-icons-round" style="font-size: 1.2rem">add</span>
+        New Deployment
+      </button>
+    </div>
+
+    <div class="data-table-container">
+      <table class="data-table" id="deployment-table">
+        <thead>
+          <tr>
+            <th data-sort="id">
+              Id
+              <span class="material-icons-round sort-icon">unfold_more</span>
+            </th>
+            <th data-sort="region" class="col-region">
+              Region
+              <span class="material-icons-round sort-icon">unfold_more</span>
+            </th>
+            <th data-sort="storefront">
+              Storefront
+              <span class="material-icons-round sort-icon">unfold_more</span>
+            </th>
+            <th data-sort="status">
+              Status
+              <span class="material-icons-round sort-icon">unfold_more</span>
+            </th>
+            <th style="text-align: right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="deployment-table-body">
+          <!-- Rows injected here -->
+        </tbody>
+      </table>
+    </div>
+
+    <div
+      id="empty-state"
+      style="
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-secondary);
+        display: none;
+      "
+    >
+      <span
+        class="material-icons-round"
+        style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5"
+        >rocket_launch</span
+      >
+      <p>No deployments found. Create one to get started.</p>
+    </div>
+  </div>
+
+  <!-- Editor View (Hidden by default) -->
+  <div
+    id="deployment-editor-view"
+    style="display: none; min-height: 100%; padding-bottom: 2rem"
+  >
+    <div
+      class="card"
+      style="max-width: 600px; margin: 0 auto; position: relative"
+    >
+      <button
+        id="btn-close-editor"
+        style="
+          position: absolute;
+          top: 1rem;
+          right: 1rem;
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: var(--text-secondary);
+        "
+      >
+        <span class="material-icons-round">close</span>
+      </button>
+      <h3 id="editor-title" style="margin-bottom: 1.5rem">Create Deployment</h3>
+
+      <form id="deployment-form">
+        <input type="hidden" id="edit-id" />
+
+        <div style="margin-bottom: 1.5rem">
+          <label
+            style="
+              display: block;
+              margin-bottom: 0.5rem;
+              font-weight: 500;
+              font-size: 0.9rem;
+            "
+            >Deployment Id</label
+          >
+          <input
+            type="text"
+            id="dep-id-display"
+            readonly
+            placeholder="Generated automatically..."
+            style="
+              width: 100%;
+              padding: 0.75rem;
+              border-radius: 0.5rem;
+              border: 1px solid var(--border-color);
+              background: var(--bg-card);
+              color: var(--text-secondary);
+              font-family: monospace;
+            "
+          />
+        </div>
+
+        <div
+          style="
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+          "
+        >
+          <div>
+            <label
+              style="
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+                font-size: 0.9rem;
+              "
+              >Region</label
+            >
+            <select
+              id="dep-region"
+              required
+              style="
+                width: 100%;
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                border: 1px solid var(--border-color);
+                background: var(--bg-card);
+                color: var(--text-primary);
+              "
+            >
+              <option value="us-central1">us-central1 (Iowa)</option>
+              <option value="us-east1">us-east1 (South Carolina)</option>
+              <option value="us-west1">us-west1 (Oregon)</option>
+              <option value="europe-west1">europe-west1 (Belgium)</option>
+              <option value="asia-east1">asia-east1 (Taiwan)</option>
+            </select>
+          </div>
+          <div>
+            <label
+              style="
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+                font-size: 0.9rem;
+              "
+              >Storefront</label
+            >
+            <select
+              id="dep-storefront"
+              required
+              style="
+                width: 100%;
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                border: 1px solid var(--border-color);
+                background: var(--bg-card);
+                color: var(--text-primary);
+              "
+            >
+              <!-- Populated via JS -->
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem">
+          <label
+            style="
+              display: block;
+              margin-bottom: 0.5rem;
+              font-weight: 500;
+              font-size: 0.9rem;
+            "
+            >Status</label
+          >
+          <select
+            id="dep-status"
+            style="
+              width: 100%;
+              padding: 0.75rem;
+              border-radius: 0.5rem;
+              border: 1px solid var(--border-color);
+              background: var(--bg-card);
+              color: var(--text-primary);
+            "
+          >
+            <option value="STOPPED">STOPPED</option>
+            <option value="DEPLOYED">DEPLOYED</option>
+          </select>
+        </div>
+
+        <div id="url-container" style="margin-bottom: 1.5rem; display: none">
+          <label
+            style="
+              display: block;
+              margin-bottom: 0.5rem;
+              font-weight: 500;
+              font-size: 0.9rem;
+            "
+            >Deployment URL</label
+          >
+          <div style="display: flex; gap: 0.5rem">
+            <input
+              type="text"
+              id="dep-url"
+              readonly
+              style="
+                flex: 1;
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                border: 1px solid var(--border-color);
+                background: var(--bg-card);
+                color: var(--accent-color);
+                font-family: monospace;
+                cursor: pointer;
+              "
+            />
+            <a
+              id="btn-open-url"
+              href="#"
+              target="_blank"
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0 1rem;
+                background: var(--bg-card);
+                border: 1px solid var(--border-color);
+                border-radius: 0.5rem;
+                color: var(--text-primary);
+                text-decoration: none;
+              "
+            >
+              <span class="material-icons-round">open_in_new</span>
+            </a>
+          </div>
+        </div>
+
+        <div
+          style="
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+          "
+        >
+          <button
+            type="button"
+            id="btn-cancel"
+            style="
+              background: transparent;
+              border: 1px solid var(--border-color);
+              color: var(--text-primary);
+              padding: 0.5rem 1.5rem;
+              border-radius: 0.5rem;
+              cursor: pointer;
+            "
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            style="
+              background: var(--accent-color);
+              color: white;
+              border: none;
+              padding: 0.5rem 1.5rem;
+              border-radius: 0.5rem;
+              font-weight: 600;
+              cursor: pointer;
+            "
+          >
+            Save Deployment
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    // --- State ---
+    let deployments = JSON.parse(localStorage.getItem("deployments")) || [];
+    let storefronts = JSON.parse(localStorage.getItem("storefronts")) || [];
+
+    let state = {
+      filter: "",
+      sortKey: "id",
+      sortOrder: "asc",
+    };
+
+    // --- Elements ---
+    const listView = document.getElementById("deployment-list-view");
+    const editorView = document.getElementById("deployment-editor-view");
+    const tableBody = document.getElementById("deployment-table-body");
+    const tableContainer = document.querySelector(".data-table-container");
+    const emptyState = document.getElementById("empty-state");
+    const form = document.getElementById("deployment-form");
+    const editorTitle = document.getElementById("editor-title");
+    const searchInput = document.getElementById("deployment-search");
+    const headers = document.querySelectorAll("th[data-sort]");
+
+    const depIdDisplay = document.getElementById("dep-id-display");
+    const depRegionInput = document.getElementById("dep-region");
+    const depStorefrontInput = document.getElementById("dep-storefront");
+    const depStatusInput = document.getElementById("dep-status");
+    const urlContainer = document.getElementById("url-container");
+    const depUrlInput = document.getElementById("dep-url");
+    const btnOpenUrl = document.getElementById("btn-open-url");
+
+    // --- Helpers ---
+    function slugify(text) {
+      return text
+        .toString()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^\w\-]+/g, "")
+        .replace(/\-\-+/g, "-")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "");
+    }
+
+    function generateId(name) {
+      const slug = slugify(name || "deploy");
+      const random = Math.random().toString(36).substring(2, 6);
+      return `${slug}-${random}`;
+    }
+
+    function generateUrl(id) {
+      return `https://${id}.web.app`;
+    }
+
+    depStorefrontInput.addEventListener("change", (e) => {
+      // Only generate ID if creating new
+      if (!document.getElementById("edit-id").value) {
+        const selectedText =
+          depStorefrontInput.options[depStorefrontInput.selectedIndex].text;
+        depIdDisplay.value = generateId(selectedText);
+      }
+    });
+
+    depStatusInput.addEventListener("change", (e) => {
+      updateUrlVisibility();
+    });
+
+    function updateUrlVisibility() {
+      if (depStatusInput.value === "DEPLOYED") {
+        urlContainer.style.display = "block";
+        // If editing, use existing ID, else use current display value
+        const currentId =
+          document.getElementById("edit-id").value || depIdDisplay.value;
+        // In a real app, URL might be stored or returned from backend.
+        // Here we generate it deterministically from ID.
+        const url = generateUrl(currentId);
+        depUrlInput.value = url;
+        btnOpenUrl.href = url;
+      } else {
+        urlContainer.style.display = "none";
+      }
+    }
+
+    function populateStorefronts() {
+      depStorefrontInput.innerHTML = "";
+      if (storefronts.length === 0) {
+        const opt = document.createElement("option");
+        opt.text = "No storefronts available";
+        opt.disabled = true;
+        opt.selected = true;
+        depStorefrontInput.appendChild(opt);
+        return;
+      }
+
+      storefronts.forEach((sf) => {
+        const opt = document.createElement("option");
+        opt.value = sf.id;
+        opt.textContent = sf.name;
+        depStorefrontInput.appendChild(opt);
+      });
+    }
+
+    function createTableRow(dep) {
+      const tr = document.createElement("tr");
+      tr.style.cursor = "pointer";
+
+      const sf = storefronts.find((s) => s.id === dep.storefrontId);
+      const sfName = sf
+        ? sf.name
+        : `<span style="color:var(--text-secondary); font-style: italic;">Unknown (${dep.storefrontId})</span>`;
+
+      const statusClass =
+        dep.status === "DEPLOYED" ? "status-deployed" : "status-stopped";
+      const statusIcon =
+        dep.status === "DEPLOYED" ? "check_circle" : "stop_circle";
+
+      tr.innerHTML = `
+          <td class="col-id">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <span class="material-icons-round" style="color: var(--accent-color); background: var(--nav-item-active-bg); padding: 4px; border-radius: 6px; font-size: 1.2rem;">rocket_launch</span>
+                <span style="font-family: monospace; font-weight: 500; font-size: 0.85rem; color: var(--text-primary);">${dep.id}</span>
+            </div>
+          </td>
+          <td class="col-region" style="color: var(--text-secondary);">${dep.region}</td>
+          <td>${sfName}</td>
+          <td>
+            <span class="status-badge ${statusClass}">
+                 ${dep.status}
+            </span>
+          </td>
+          <td>
+            <div class="action-btn-group">
+                ${
+                  dep.status === "DEPLOYED"
+                    ? `
+                <a href="${generateUrl(dep.id)}" target="_blank" class="icon-btn" title="Open Deployment" style="color: var(--accent-color); text-decoration: none; display: flex; align-items: center; justify-content: center;" onclick="event.stopPropagation()">
+                    <span class="material-icons-round" style="font-size: 1.2rem;">open_in_new</span>
+                </a>
+                `
+                    : ""
+                }
+                <button class="icon-btn btn-edit" title="Edit">
+                    <span class="material-icons-round" style="font-size: 1.2rem;">edit</span>
+                </button>
+                <button class="icon-btn btn-delete" title="Delete" style="color: #ef4444;">
+                    <span class="material-icons-round" style="font-size: 1.2rem;">delete</span>
+                </button>
+            </div>
+          </td>
+      `;
+
+      tr.addEventListener("click", () => openEditor(dep));
+
+      tr.querySelector(".btn-edit").addEventListener("click", (e) => {
+        e.stopPropagation();
+        openEditor(dep);
+      });
+
+      tr.querySelector(".btn-delete").addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (confirm("Are you sure you want to delete this deployment?")) {
+          deleteDeployment(dep.id);
+        }
+      });
+
+      return tr;
+    }
+
+    // --- Actions ---
+    function renderList() {
+      tableBody.innerHTML = "";
+
+      // Filter
+      let displayData = deployments.filter((d) => {
+        const search = state.filter.toLowerCase();
+        return d.id.toLowerCase().includes(search);
+      });
+
+      // Sort
+      displayData.sort((a, b) => {
+        let valA = a[state.sortKey] || "";
+        let valB = b[state.sortKey] || "";
+
+        if (typeof valA === "string") valA = valA.toLowerCase();
+        if (typeof valB === "string") valB = valB.toLowerCase();
+
+        if (valA < valB) return state.sortOrder === "asc" ? -1 : 1;
+        if (valA > valB) return state.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+
+      // Update Headers
+      headers.forEach((th) => {
+        const icon = th.querySelector(".sort-icon");
+        th.classList.remove("sorted");
+        icon.textContent = "unfold_more";
+
+        if (th.dataset.sort === state.sortKey) {
+          th.classList.add("sorted");
+          icon.textContent =
+            state.sortOrder === "asc" ? "arrow_upward" : "arrow_downward";
+        }
+      });
+
+      if (displayData.length === 0) {
+        if (state.filter) {
+          tableContainer.style.display = "block";
+          tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No results found for "${state.filter}"</td></tr>`;
+          emptyState.style.display = "none";
+        } else {
+          tableContainer.style.display = "none";
+          emptyState.style.display = "block";
+        }
+      } else {
+        tableContainer.style.display = "block";
+        emptyState.style.display = "none";
+        displayData.forEach((d) => {
+          tableBody.appendChild(createTableRow(d));
+        });
+      }
+    }
+
+    function handleSort(key) {
+      if (state.sortKey === key) {
+        state.sortOrder = state.sortOrder === "asc" ? "desc" : "asc";
+      } else {
+        state.sortKey = key;
+        state.sortOrder = "asc";
+      }
+      renderList();
+    }
+
+    function openEditor(dep = null) {
+      listView.style.display = "none";
+      editorView.style.display = "block";
+      populateStorefronts();
+
+      // Reset form
+      document.getElementById("edit-id").value = "";
+      depRegionInput.value = "us-central1";
+      depStatusInput.value = "STOPPED";
+
+      // Default ID based on first storefront if available
+      if (
+        depStorefrontInput.options.length > 0 &&
+        !depStorefrontInput.options[0].disabled
+      ) {
+        depStorefrontInput.selectedIndex = 0;
+        depIdDisplay.value = generateId(depStorefrontInput.options[0].text);
+      } else {
+        depIdDisplay.value = generateId("");
+      }
+
+      updateUrlVisibility();
+      depStatusInput.disabled = true; // Disable by default for new
+
+      if (dep) {
+        editorTitle.textContent = "Edit Deployment";
+        document.getElementById("edit-id").value = dep.id;
+        depIdDisplay.value = dep.id;
+        depRegionInput.value = dep.region;
+        depStorefrontInput.value = dep.storefrontId;
+        depStatusInput.value = dep.status;
+        depStatusInput.disabled = false; // Enable for edit
+        updateUrlVisibility();
+      } else {
+        editorTitle.textContent = "Create Deployment";
+      }
+    }
+
+    function closeEditor() {
+      editorView.style.display = "none";
+      listView.style.display = "block";
+    }
+
+    function deleteDeployment(id) {
+      deployments = deployments.filter((d) => d.id !== id);
+      saveData();
+      renderList();
+    }
+
+    function saveData() {
+      localStorage.setItem("deployments", JSON.stringify(deployments));
+    }
+
+    // --- Event Listeners ---
+    document
+      .getElementById("btn-add-deployment")
+      .addEventListener("click", () => openEditor());
+
+    document
+      .getElementById("btn-cancel")
+      .addEventListener("click", closeEditor);
+
+    document
+      .getElementById("btn-close-editor")
+      .addEventListener("click", closeEditor);
+
+    searchInput.addEventListener("input", (e) => {
+      state.filter = e.target.value;
+      renderList();
+    });
+
+    headers.forEach((th) => {
+      th.addEventListener("click", () => {
+        handleSort(th.dataset.sort);
+      });
+    });
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      const id = document.getElementById("edit-id").value;
+      const region = depRegionInput.value;
+      const storefrontId = depStorefrontInput.value;
+      const status = depStatusInput.value;
+
+      const newId = id || depIdDisplay.value;
+      const url = status === "DEPLOYED" ? generateUrl(newId) : null;
+
+      if (id) {
+        // Update
+        const index = deployments.findIndex((d) => d.id === id);
+        if (index !== -1) {
+          deployments[index] = {
+            ...deployments[index],
+            region,
+            storefrontId,
+            status,
+            url,
+          };
+        }
+      } else {
+        // Create
+        const newDep = {
+          id: newId,
+          region,
+          storefrontId,
+          status,
+          url,
+        };
+        deployments.push(newDep);
+      }
+
+      saveData();
+      renderList();
+      closeEditor();
+    });
+
+    // Initialize
+    renderList();
+  })();
+</script>
