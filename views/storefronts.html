@@ -214,31 +214,50 @@
       <form id="storefront-form">
         <input type="hidden" id="edit-id" />
 
-        <div style="margin-bottom: 1.5rem">
-          <label
-            style="
-              display: block;
-              margin-bottom: 0.5rem;
-              font-weight: 500;
-              font-size: 0.9rem;
-            "
-            >Storefront Id</label
-          >
-          <input
-            type="text"
-            id="sf-id-display"
-            readonly
-            placeholder="Generated automatically..."
-            style="
-              width: 100%;
-              padding: 0.75rem;
-              border-radius: 0.5rem;
-              border: 1px solid var(--border-color);
-              background: var(--bg-card);
-              color: var(--text-secondary);
-              font-family: monospace;
-            "
-          />
+        <div style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem">
+          <div style="flex: 1">
+            <label
+              style="
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+                font-size: 0.9rem;
+              "
+              >Storefront Id</label
+            >
+            <input
+              type="text"
+              id="sf-id-display"
+              readonly
+              placeholder="Generated automatically..."
+              style="
+                width: 100%;
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                border: 1px solid var(--border-color);
+                background: var(--bg-card);
+                color: var(--text-secondary);
+                font-family: monospace;
+              "
+            />
+          </div>
+          <div>
+            <label
+              style="
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+                font-size: 0.9rem;
+              "
+              >MCP Support</label
+            >
+            <div style="height: 42px; display: flex; align-items: center">
+              <label class="switch">
+                <input type="checkbox" id="sf-support-mcp" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
         </div>
 
         <div style="margin-bottom: 1.5rem">
@@ -897,21 +916,21 @@
                     <input type="hidden" class="edit-index">
 
                     <div style="margin-bottom: 0.75rem;">
-                        <input type="text" class="manual-name" placeholder="Product Name" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                        <input type="text" class="manual-name" placeholder="Product Name" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary);">
                     </div>
                     <div style="margin-bottom: 0.75rem;">
-                        <input type="text" class="manual-desc" placeholder="Description" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                        <input type="text" class="manual-desc" placeholder="Description" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary);">
                     </div>
                     <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
-                        <input type="text" class="manual-url" placeholder="Endpoint / Spec URL" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
-                        <select class="manual-type" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                        <input type="text" class="manual-url" placeholder="Endpoint / Spec URL" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary);">
+                        <select class="manual-type" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary);">
                             <option value="rest">REST</option>
                             <option value="grpc">gRPC</option>
                             <option value="json-rpc">JSON-RPC</option>
                             <option value="mcp">MCP</option>
                             <option value="a2a">A2A</option>
                         </select>
-                        <select class="manual-auth" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                        <select class="manual-auth" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary);">
                             <option value="none">No Auth</option>
                             <option value="oauth">OAuth</option>
                             <option value="apikey">API Key</option>
@@ -1206,6 +1225,7 @@
       sourcesContainer.innerHTML = "";
       document.getElementById("edit-id").value = "";
       document.getElementById("sf-name").value = "";
+      document.getElementById("sf-support-mcp").checked = false;
       document.getElementById("sf-api-key").value = "";
       document.getElementById("sf-auth-domain").value = "";
       sfIdDisplay.value = generateId("");
@@ -1219,6 +1239,8 @@
         document.getElementById("edit-id").value = sf.id;
         sfIdDisplay.value = sf.id;
         document.getElementById("sf-name").value = sf.name;
+        document.getElementById("sf-support-mcp").checked =
+          sf.supportMcp || false;
 
         // Handle Auth
         const authType =
@@ -1288,6 +1310,7 @@
 
       const id = document.getElementById("edit-id").value;
       const name = document.getElementById("sf-name").value;
+      const supportMcp = document.getElementById("sf-support-mcp").checked;
       const authType = sfAuthType.value;
       const authApiKey =
         authType === "identity-platform"
@@ -1344,6 +1367,7 @@
           storefronts[index] = {
             ...storefronts[index],
             name,
+            supportMcp,
             authType,
             authApiKey,
             authDomain,
@@ -1355,6 +1379,7 @@
         const newSf = {
           id: sfIdDisplay.value,
           name,
+          supportMcp,
           authType,
           authApiKey,
           authDomain,
