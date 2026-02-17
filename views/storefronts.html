@@ -668,6 +668,11 @@
                     </div>
                 </div>
 
+                <!-- Config Container -->
+                <div class="config-container" style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-bottom: 1rem;">
+                    <!-- Content injected by JS -->
+                </div>
+
                 <!-- Audience Configuration -->
                 <div style="border-top: 1px solid var(--border-color); padding: 1rem 0; margin-bottom: 0.5rem;">
                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -688,11 +693,6 @@
                         <!-- Audiences injected here -->
                     </div>
                      <div class="no-audiences-msg" style="display: none; color: var(--text-secondary); font-size: 0.8rem; font-style: italic;">No audiences defined. Create one in the Audiences tab.</div>
-                </div>
-
-                <!-- Config Container -->
-                <div class="config-container" style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
-                    <!-- Content injected by JS -->
                 </div>
             `;
 
@@ -953,6 +953,7 @@
 
     function createTableRow(sf) {
       const tr = document.createElement("tr");
+      tr.style.cursor = "pointer";
 
       const sourceCount = sf.sources ? sf.sources.length : 0;
       const types = sf.sources
@@ -991,10 +992,15 @@
           </td>
       `;
 
-      tr.querySelector(".btn-edit").addEventListener("click", () =>
-        openEditor(sf),
-      );
-      tr.querySelector(".btn-delete").addEventListener("click", () => {
+      tr.addEventListener("click", () => openEditor(sf));
+
+      tr.querySelector(".btn-edit").addEventListener("click", (e) => {
+        e.stopPropagation();
+        openEditor(sf);
+      });
+
+      tr.querySelector(".btn-delete").addEventListener("click", (e) => {
+        e.stopPropagation();
         if (confirm("Are you sure you want to delete this storefront?")) {
           deleteStorefront(sf.id);
         }
@@ -1119,6 +1125,7 @@
 
         document.getElementById("sf-api-key").value = sf.apiKey || "";
         document.getElementById("sf-auth-domain").value = sf.authDomain || "";
+
         (sf.sources || []).forEach((s) => {
           sourcesContainer.appendChild(createSourceRow(s));
         });
