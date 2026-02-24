@@ -638,3 +638,10 @@ body {
   gap: 1rem;
   margin-top: 1.5rem;
 }
+
+/* Fix for mobile scroll on team view */
+@media (max-width: 768px) {
+  #team-list-view {
+    padding-bottom: 80px; /* Ensure content clears bottom of viewport/nav */
+  }
+}
