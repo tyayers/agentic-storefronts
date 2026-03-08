@@ -64,9 +64,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebarOverlay = document.getElementById("sidebar-overlay");
 
   // --- Initialization ---
-  function init() {
-    // Auth Check
-    checkAuth();
+  async function init() {
+    const isAuthenticated = await checkAuth();
+    if (!isAuthenticated) return;
+
+    try {
+      const token = localStorage.getItem("google_credential");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch("/api/config", { headers });
+      if (res.ok) {
+        const config = await res.json();
+        localStorage.setItem("app_config", JSON.stringify(config));
+      }
+    } catch (err) {
+      console.error("Failed to load config:", err);
+    }
 
     applyTheme(state.theme);
 
@@ -93,113 +105,56 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // --- Auth Logic ---
-  function checkAuth() {
-    const user = localStorage.getItem("user_session");
-    const landingPage = document.getElementById("landing-page");
+  async function checkAuth() {
     const appContainer = document.getElementById("app-container");
 
-    if (user) {
-      // Logged In
-      state.user = JSON.parse(user);
-      landingPage.style.display = "none";
-      appContainer.style.display = "flex"; // Restore flex layout
+    try {
+      const res = await fetch("/api/auth/session");
+      if (res.ok) {
+        const data = await res.json();
+        state.user = data.user;
+        localStorage.setItem("google_credential", data.id_token);
+        localStorage.setItem("user_session", JSON.stringify(data.user));
 
-      updateUserProfile(state.user);
-      renderNavigation();
+        if (appContainer) appContainer.style.display = "flex"; // Restore flex layout
 
-      // If no hash, default to dashboard
-      if (!window.location.hash) {
-        window.location.hash = "storefronts";
-      } else {
+        updateUserProfile(state.user);
+        renderNavigation();
+
+        // Always handle route to load the default or hash route content
         handleRoute();
+        return true;
       }
-    } else {
-      // Logged Out
-      landingPage.style.display = "flex"; // Show landing page
-      appContainer.style.display = "none";
-      window.location.hash = ""; // Clear hash
+    } catch (err) {
+      console.error("Session check failed:", err);
     }
+
+    // Logged Out
+    window.location.href = "/";
+    return false;
   }
 
-  // Exposed global function for Google Identity Services callback
-  window.handleCredentialResponse = (response) => {
-    // Decode JWT to get user info (Basic decoding)
-    const responsePayload = decodeJwt(response.credential);
-
-    const user = {
-      name: responsePayload.name,
-      email: responsePayload.email,
-      picture: responsePayload.picture,
-    };
-
-    localStorage.setItem("user_session", JSON.stringify(user));
-    checkAuth();
-  };
-
-  // --- OAuth Logic ---
-  // let tokenClient;
-  // const CLIENT_ID =
-  //   "609874082793-0ad22eutlkcrrs0uehm8vekut6j07u2j.apps.googleusercontent.com";
-
-  // window.getGcpAccessToken = () => {
-  //   return new Promise((resolve, reject) => {
-  //     if (typeof google === "undefined") {
-  //       reject("Google Identity Services not loaded");
-  //       return;
-  //     }
-
-  //     if (!tokenClient) {
-  //       tokenClient = google.accounts.oauth2.initTokenClient({
-  //         client_id:
-  //           "609874082793-0ad22eutlkcrrs0uehm8vekut6j07u2j.apps.googleusercontent.com",
-  //         scope: "https://www.googleapis.com/auth/cloud-platform",
-  //         callback: "", // Placeholder, set dynamically
-  //       });
-  //     }
-
-  //     tokenClient.callback = (resp) => {
-  //       if (resp.error !== undefined) {
-  //         reject(resp);
-  //       } else {
-  //         resolve(resp.access_token);
-  //       }
-  //     };
-
-  //     tokenClient.requestAccessToken({ prompt: "consent" });
-  //   });
-  // };
-
-  function decodeJwt(token) {
-    var base64Url = token.split(".")[1];
-    var base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    var jsonPayload = decodeURIComponent(
-      window
-        .atob(base64)
-        .split("")
-        .map(function (c) {
-          return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
-        })
-        .join(""),
-    );
-
-    return JSON.parse(jsonPayload);
-  }
+  // Exposed global function for Google Identity Services callback removed
 
   function updateUserProfile(user) {
     const profileContainer = document.querySelector(".user-profile");
     if (profileContainer) {
       profileContainer.innerHTML = `
-            <img src="${user.picture}" alt="User" class="avatar">
+            <img src="${user.picture}" alt="User" class="avatar" onerror="this.src='/user.png';">
             <div class="user-info">
                 <span class="user-name">${user.name}</span>
                 <span class="user-role" style="font-size: 0.75rem; color: var(--text-secondary); cursor: pointer; text-decoration: underline;" id="btn-logout">Sign Out</span>
             </div>
         `;
 
-      document.getElementById("btn-logout").addEventListener("click", () => {
-        localStorage.removeItem("user_session");
-        checkAuth();
-      });
+      document
+        .getElementById("btn-logout")
+        .addEventListener("click", async () => {
+          await fetch("/api/auth/logout", { method: "POST" });
+          localStorage.removeItem("user_session");
+          localStorage.removeItem("google_credential");
+          window.location.href = "/";
+        });
     }
   }
 
@@ -233,7 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function handleRoute() {
-    const hash = window.location.hash.substring(1) || "dashboard";
+    const hash = window.location.hash.substring(1) || "storefronts";
     const route = routes.find((r) => r.id === hash);
 
     if (route) {

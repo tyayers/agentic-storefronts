@@ -707,7 +707,7 @@
 </div>
 
 <script>
-  (function () {
+  (async function () {
     // --- Mock Data ---
     const MOCK_PRODUCTS = [
       { id: "p1", name: "Product A" },
@@ -738,8 +738,82 @@
       },
     ];
 
+    // --- API Service ---
+    const API = {
+      async request(endpoint, options = {}) {
+        const userStr = localStorage.getItem("user_session");
+        let token = null;
+        if (userStr) {
+          // Find original google response if needed or stored token.
+          // Assuming user_session stores raw token. If not, we might need a workaround for prototype.
+          // For now, let's extract the credential from local storage if available,
+          // or assume it's stored. Currently the app.js decodes it. We need the raw token.
+          // Wait, the backend requires an ID token. Let's modify the frontend to store the raw credential.
+          token = localStorage.getItem("google_credential");
+        }
+
+        const headers = {
+          "Content-Type": "application/json",
+          ...options.headers,
+        };
+
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`/api${endpoint}`, {
+          ...options,
+          headers,
+        });
+
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.statusText}`);
+        }
+
+        if (response.status === 204) return null;
+        return response.json();
+      },
+
+      async getProducts(type, projectId, region) {
+        try {
+          const token = localStorage.getItem("google_credential");
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          const query = new URLSearchParams({ projectId, region }).toString();
+          return await this.request(`/products/${type}?${query}`, { headers });
+        } catch (e) {
+          console.error(e);
+          return [];
+        }
+      },
+
+      async getStorefronts() {
+        try {
+          const token = localStorage.getItem("google_credential");
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          return await this.request("/storefronts", { headers });
+        } catch (e) {
+          console.error(e);
+          return [];
+        }
+      },
+
+      async saveStorefront(storefront) {
+        const method = "POST"; // Upsert logic on backend handles POST/PUT identically
+        return await this.request("/storefronts", {
+          method,
+          body: JSON.stringify(storefront),
+        });
+      },
+
+      async deleteStorefront(id) {
+        return await this.request(`/storefronts?id=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        });
+      },
+    };
+
     // --- State ---
-    let storefronts = JSON.parse(localStorage.getItem("storefronts")) || [];
+    let storefronts = [];
     let audiences = JSON.parse(localStorage.getItem("audiences")) || [];
     let state = {
       filter: "",
@@ -747,6 +821,12 @@
       sortOrder: "asc", // or 'desc'
       currentTemplateIndex: 0,
     };
+
+    // Load data from API
+    async function loadData() {
+      storefronts = await API.getStorefronts();
+      renderList();
+    }
 
     // --- Elements ---
     const listView = document.getElementById("storefront-list-view");
@@ -869,24 +949,27 @@
       // Local state for this row's product list
       let productFilter = "";
       let productSortOrder = "asc";
+      let localProducts = [];
+
+      let defaultProjectId = "";
+      let defaultRegion = "us-central1";
+      try {
+        const config = JSON.parse(localStorage.getItem("app_config") || "{}");
+        defaultProjectId = config.projectId || "";
+        defaultRegion = config.region || "us-central1";
+      } catch (e) {}
 
       div.innerHTML = `
                 <button type="button" class="btn-remove-source" style="position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; color: #ef4444; cursor: pointer;">
                     <span class="material-icons-round" style="font-size: 1.2rem;">close</span>
                 </button>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                    <div>
-                        <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Google Cloud Project Id</label>
-                        <input type="text" class="source-name" value="${data.name || ""}" placeholder="e.g. my-gcp-project" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
-                    </div>
-                    <div>
-                        <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Type</label>
-                        <select class="source-type" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
-                            <option value="vertex" ${type === "vertex" ? "selected" : ""}>Vertex Products</option>
-                            <option value="apigee" ${type === "apigee" ? "selected" : ""}>Apigee Products</option>
-                            <option value="manual" ${type === "manual" ? "selected" : ""}>Manual</option>
-                        </select>
-                    </div>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Type</label>
+                    <select class="source-type" style="width: 100%; max-width: 300px; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                        <option value="vertex" ${type === "vertex" ? "selected" : ""}>Vertex Products</option>
+                        <option value="apigee" ${type === "apigee" ? "selected" : ""}>Apigee Products</option>
+                        <option value="manual" ${type === "manual" ? "selected" : ""}>Manual</option>
+                    </select>
                 </div>
 
                 <!-- Config Container -->
@@ -1001,6 +1084,24 @@
           let isChecked = data.type === currentType ? enableAll : true;
 
           modeDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Google Cloud Project Id</label>
+                        <input type="text" class="source-name" value="${data.name || defaultProjectId}" placeholder="e.g. my-gcp-project" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Region</label>
+                        <input type="text" list="region-options-${id}" class="source-region" value="${data.region || defaultRegion}" placeholder="e.g. us-central1" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+                        <datalist id="region-options-${id}">
+                            <option value="us-central1"></option>
+                            <option value="us-east1"></option>
+                            <option value="us-west1"></option>
+                            <option value="europe-west1"></option>
+                            <option value="asia-east1"></option>
+                        </datalist>
+                    </div>
+                </div>
+
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                     <span style="font-size: 0.9rem; font-weight: 500;">Enable All Products</span>
                     <label class="switch">
@@ -1038,11 +1139,21 @@
           const sortBtn = modeDiv.querySelector(".btn-sort-products");
           const productList = modeDiv.querySelector(".product-list");
 
+          async function fetchAndRenderProducts() {
+            productList.innerHTML = `<div class="loader" style="width: 20px; height: 20px; border-width: 2px; margin: 1rem auto;"></div>`;
+            const projId = modeDiv.querySelector(".source-name").value;
+            const reg = modeDiv.querySelector(".source-region")
+              ? modeDiv.querySelector(".source-region").value
+              : "";
+            localProducts = await API.getProducts(currentType, projId, reg);
+            renderProductList();
+          }
+
           function renderProductList() {
             productList.innerHTML = "";
 
             // Filter
-            let filtered = MOCK_PRODUCTS.filter((p) =>
+            let filtered = localProducts.filter((p) =>
               p.name.toLowerCase().includes(productFilter.toLowerCase()),
             );
 
@@ -1103,7 +1214,24 @@
             selectionArea.style.display = e.target.checked ? "none" : "block";
             isChecked = e.target.checked;
             data.enableAll = isChecked;
+            if (!isChecked && localProducts.length === 0) {
+              fetchAndRenderProducts();
+            }
           });
+
+          modeDiv
+            .querySelector(".source-name")
+            .addEventListener("change", () => {
+              if (!isChecked) fetchAndRenderProducts();
+            });
+
+          if (modeDiv.querySelector(".source-region")) {
+            modeDiv
+              .querySelector(".source-region")
+              .addEventListener("change", () => {
+                if (!isChecked) fetchAndRenderProducts();
+              });
+          }
 
           searchInput.addEventListener("input", (e) => {
             productFilter = e.target.value;
@@ -1124,7 +1252,11 @@
           });
 
           // Initial render of list
-          renderProductList();
+          if (!isChecked) {
+            fetchAndRenderProducts();
+          } else {
+            renderProductList();
+          }
 
           configContainer.appendChild(modeDiv);
         } else if (currentType === "manual") {
@@ -1292,7 +1424,10 @@
         }
       }
 
-      typeSelect.addEventListener("change", renderConfig);
+      typeSelect.addEventListener("change", () => {
+        localProducts = [];
+        renderConfig();
+      });
 
       div.querySelector(".btn-remove-source").addEventListener("click", () => {
         div.remove();
@@ -1518,15 +1653,20 @@
       listView.style.display = "block";
     }
 
-    function deleteStorefront(id) {
-      storefronts = storefronts.filter((s) => s.id !== id);
-      saveData();
-      renderList();
+    async function deleteStorefront(id) {
+      try {
+        await API.deleteStorefront(id);
+        await loadData();
+      } catch (e) {
+        console.error("Failed to delete storefront", e);
+        alert("Failed to delete storefront.");
+      }
     }
 
-    function saveData() {
-      localStorage.setItem("storefronts", JSON.stringify(storefronts));
-    }
+    // Replace old saveData logic
+    // function saveData() {
+    //   localStorage.setItem("storefronts", JSON.stringify(storefronts));
+    // }
 
     // --- Event Listeners ---
     document
@@ -1561,7 +1701,7 @@
       });
     });
 
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const id = document.getElementById("edit-id").value;
@@ -1584,7 +1724,10 @@
       // Collect sources
       const sourceRows = sourcesContainer.querySelectorAll(".source-row");
       const sources = Array.from(sourceRows).map((row) => {
-        const sourceName = row.querySelector(".source-name").value;
+        const sourceNameInput = row.querySelector(".source-name");
+        const sourceName = sourceNameInput ? sourceNameInput.value : "";
+        const sourceRegionInput = row.querySelector(".source-region");
+        const region = sourceRegionInput ? sourceRegionInput.value : "";
         const type = row.querySelector(".source-type").value;
 
         // Capture Audience Config
@@ -1595,6 +1738,7 @@
 
         let sourceData = {
           name: sourceName,
+          region,
           type,
           allUsers,
           selectedAudiences,
@@ -1620,11 +1764,12 @@
         return sourceData;
       });
 
+      let savePayload;
       if (id) {
         // Update
         const index = storefronts.findIndex((s) => s.id === id);
         if (index !== -1) {
-          storefronts[index] = {
+          savePayload = {
             ...storefronts[index],
             name,
             supportMcp,
@@ -1638,7 +1783,7 @@
         }
       } else {
         // Create
-        const newSf = {
+        savePayload = {
           id: sfIdDisplay.value,
           name,
           supportMcp,
@@ -1649,17 +1794,20 @@
           templateId,
           sources,
         };
-        storefronts.push(newSf);
       }
 
-      console.log(storefronts);
-
-      saveData();
-      renderList();
-      closeEditor();
+      // Save via API
+      try {
+        await API.saveStorefront(savePayload);
+        await loadData(); // Reload from server
+        closeEditor();
+      } catch (e) {
+        console.error("Failed to save", e);
+        alert("Failed to save storefront");
+      }
     });
 
     // Initialize
-    renderList();
+    loadData();
   })();
 </script>

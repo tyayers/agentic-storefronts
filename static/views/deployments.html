@@ -612,7 +612,14 @@
 
       // Reset form
       document.getElementById("edit-id").value = "";
-      depRegionInput.value = "us-central1";
+
+      let defaultRegion = "us-central1";
+      try {
+        const config = JSON.parse(localStorage.getItem("app_config") || "{}");
+        if (config.region) defaultRegion = config.region;
+      } catch (e) {}
+
+      depRegionInput.value = defaultRegion;
       depStatusInput.value = "DEPLOYED";
       depStatusInput.disabled = true;
 

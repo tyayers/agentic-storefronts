@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agentic Storefronts - Publish & Monetize</title>
+    <!-- Google Fonts for modern typography -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Material Icons for UI elements -->
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary: #6366f1;
+        --primary-dark: #4f46e5;
+        --bg-color: #0f172a;
+        --text-color: #f8fafc;
+        --text-muted: #94a3b8;
+        --card-bg: rgba(30, 41, 59, 0.7);
+        --accent: #10b981;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: "Inter", sans-serif;
+        background: var(--bg-color);
+        color: var(--text-color);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow-x: hidden;
+        background-image:
+          radial-gradient(
+            circle at 15% 50%,
+            rgba(99, 102, 241, 0.15),
+            transparent 25%
+          ),
+          radial-gradient(
+            circle at 85% 30%,
+            rgba(16, 185, 129, 0.15),
+            transparent 25%
+          );
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem 3rem;
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        font-size: 1.25rem;
+        letter-spacing: -0.5px;
+      }
+
+      .logo .material-icons-round {
+        color: var(--primary);
+        font-size: 2rem;
+      }
+
+      .auth-container {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 4rem 2rem;
+        text-align: center;
+      }
+
+      .hero {
+        max-width: 800px;
+        margin-bottom: 5rem;
+        animation: fadeIn 1s ease-out;
+      }
+
+      .hero h1 {
+        font-size: 4rem;
+        font-weight: 900;
+        line-height: 1.1;
+        margin-bottom: 1.5rem;
+        background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .hero h1 span {
+        background: linear-gradient(
+          135deg,
+          var(--primary) 0%,
+          var(--accent) 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .hero p {
+        font-size: 1.25rem;
+        color: var(--text-muted);
+        margin-bottom: 2rem;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.6;
+      }
+
+      .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        max-width: 1200px;
+        width: 100%;
+      }
+
+      .feature-card {
+        background: var(--card-bg);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 1rem;
+        padding: 2.5rem;
+        text-align: left;
+        transition:
+          transform 0.3s ease,
+          box-shadow 0.3s ease;
+        backdrop-filter: blur(10px);
+      }
+
+      .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        border-color: rgba(99, 102, 241, 0.3);
+      }
+
+      .feature-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 3rem;
+        height: 3rem;
+        border-radius: 0.75rem;
+        background: rgba(99, 102, 241, 0.1);
+        color: var(--primary);
+        margin-bottom: 1.5rem;
+      }
+
+      .feature-card h3 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+      }
+
+      .feature-card p {
+        color: var(--text-muted);
+        line-height: 1.6;
+      }
+
+      footer {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-muted);
+        font-size: 0.875rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .hero h1 {
+          font-size: 2.5rem;
+        }
+        header {
+          flex-direction: column;
+          gap: 1rem;
+          padding: 1.5rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo">
+        <span class="material-icons-round">layers</span>
+        Agentic Storefronts
+      </div>
+      <div class="auth-container">
+        <button
+          id="signin-btn"
+          style="
+            cursor: pointer;
+            padding: 0.75rem 1.5rem;
+            color: var(--text-color);
+            background: var(--card-bg);
+            font-size: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+          "
+        >
+          <span class="material-icons-round">login</span>
+          Sign in with Google
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Publish, Monetize & Scale <span>Agentic Assets</span></h1>
+        <p>
+          The premier platform for deploying autonomous agents. Transform your
+          AI creations into lucrative, scalable products with zero friction.
+        </p>
+      </section>
+
+      <section class="features">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <span class="material-icons-round">publish</span>
+          </div>
+          <h3>Seamless Publishing</h3>
+          <p>
+            Deploy your intelligent agents to our globally distributed
+            infrastructure in seconds. No complex devops, just pure capability.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <span class="material-icons-round">payments</span>
+          </div>
+          <h3>Instant Monetization</h3>
+          <p>
+            Set custom pricing models: pay-per-execution, monthly subscriptions,
+            or tier-based access. Turn your compute into cash.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <span class="material-icons-round">insights</span>
+          </div>
+          <h3>Deep Analytics</h3>
+          <p>
+            Track every interaction, monitor API consumption, and understand
+            your audience with enterprise-grade telemetry.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>&copy; 2024 Nexus Inc. All rights reserved.</footer>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+      // Check if already logged in via server session
+      window.onload = async function () {
+        try {
+          const res = await fetch("/api/auth/session");
+          if (res.ok) {
+            window.location.href = "/manage/";
+            return;
+          }
+        } catch (e) {
+          console.error("Session check failed", e);
+        }
+
+        const client = google.accounts.oauth2.initCodeClient({
+          client_id:
+            "1065152409420-5rhqsg7m4k45vdjqmj6obfdm1bm1f6qr.apps.googleusercontent.com",
+          scope: "email profile openid",
+          ux_mode: "popup",
+          callback: async (response) => {
+            if (response.code) {
+              try {
+                const res = await fetch("/api/auth/google/callback", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ code: response.code }),
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  localStorage.setItem(
+                    "user_session",
+                    JSON.stringify(data.user),
+                  );
+                  localStorage.setItem("google_credential", data.id_token);
+                  window.location.href = "/manage/";
+                } else {
+                  alert("Login failed on server.");
+                }
+              } catch (e) {
+                console.error("Callback error", e);
+                alert("Login failed.");
+              }
+            }
+          },
+        });
+
+        const signinBtn = document.getElementById("signin-btn");
+        if (signinBtn) {
+          signinBtn.addEventListener("click", () => {
+            client.requestCode();
+          });
+        }
+      };
+    </script>
+  </body>
+</html>
