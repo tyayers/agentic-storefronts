@@ -21,6 +21,9 @@ import (
 )
 
 const dataDir = "./data/storefronts"
+const taxonomiesDir = "./data/taxonomies"
+const productGroupsDir = "./data/product-groups"
+const audiencesDir = "./data/audiences"
 
 var oauthConf = &oauth2.Config{
 	ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
@@ -37,15 +40,6 @@ func init() {
 	if oauthConf.ClientID == "" {
 		oauthConf.ClientID = "609874082793-0ad22eutlkcrrs0uehm8vekut6j07u2j.apps.googleusercontent.com"
 	}
-}
-
-type UserSessionData struct {
-	Email             string        `json:"email"`
-	Name              string        `json:"name"`
-	Picture           string        `json:"picture"`
-	AuthorizationCode string        `json:"authorization_code"`
-	Token             *oauth2.Token `json:"token"`
-	IDToken           string        `json:"id_token"`
 }
 
 var sessions = make(map[string]string)
@@ -197,12 +191,358 @@ func storefrontsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// TaxonomiesHandler manages CRUD for taxonomies
+func taxonomiesHandler(w http.ResponseWriter, r *http.Request) {
+	// Ensure data directory exists
+	if err := os.MkdirAll(taxonomiesDir, 0755); err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to access data directory"})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		// List all taxonomies
+		files, err := os.ReadDir(taxonomiesDir)
+		if err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to read taxonomies"})
+			return
+		}
+
+		var taxonomies []json.RawMessage
+		for _, file := range files {
+			if !file.IsDir() && strings.HasSuffix(file.Name(), ".json") {
+				data, err := os.ReadFile(filepath.Join(taxonomiesDir, file.Name()))
+				if err == nil {
+					taxonomies = append(taxonomies, data)
+				}
+			}
+		}
+
+		if taxonomies == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("[]"))
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("["))
+		for i, tax := range taxonomies {
+			if i > 0 {
+				w.Write([]byte(","))
+			}
+			w.Write(tax)
+		}
+		w.Write([]byte("]"))
+
+	case http.MethodPost, http.MethodPut:
+		// Create or Update taxonomy
+		var tax map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&tax); err != nil {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Invalid JSON"})
+			return
+		}
+
+		id, ok := tax["id"].(string)
+		if !ok || id == "" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Missing or invalid 'id'"})
+			return
+		}
+
+		id = filepath.Base(filepath.Clean(id))
+		filePath := filepath.Join(taxonomiesDir, id+".json")
+
+		data, err := json.MarshalIndent(tax, "", "  ")
+		if err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to process data"})
+			return
+		}
+
+		if err := os.WriteFile(filePath, data, 0644); err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to save taxonomy"})
+			return
+		}
+
+		jsonResponse(w, http.StatusOK, tax)
+
+	case http.MethodDelete:
+		// Delete taxonomy
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Missing 'id' parameter"})
+			return
+		}
+
+		id = filepath.Base(filepath.Clean(id))
+		filePath := filepath.Join(taxonomiesDir, id+".json")
+
+		if err := os.Remove(filePath); err != nil {
+			if os.IsNotExist(err) {
+				jsonResponse(w, http.StatusNotFound, map[string]string{"error": "Taxonomy not found"})
+			} else {
+				jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to delete taxonomy"})
+			}
+			return
+		}
+
+		jsonResponse(w, http.StatusOK, map[string]string{"status": "deleted"})
+
+	default:
+		w.Header().Set("Allow", "GET, POST, PUT, DELETE")
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+	}
+}
+
+// ProductGroupsHandler manages CRUD for product groups
+func productGroupsHandler(w http.ResponseWriter, r *http.Request) {
+	if err := os.MkdirAll(productGroupsDir, 0755); err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to access data directory"})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		files, err := os.ReadDir(productGroupsDir)
+		if err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to read product groups"})
+			return
+		}
+
+		var groups []json.RawMessage
+		for _, file := range files {
+			if !file.IsDir() && strings.HasSuffix(file.Name(), ".json") {
+				data, err := os.ReadFile(filepath.Join(productGroupsDir, file.Name()))
+				if err == nil {
+					groups = append(groups, data)
+				}
+			}
+		}
+
+		if groups == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("[]"))
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("["))
+		for i, g := range groups {
+			if i > 0 {
+				w.Write([]byte(","))
+			}
+			w.Write(g)
+		}
+		w.Write([]byte("]"))
+
+	case http.MethodPost, http.MethodPut:
+		var pg map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&pg); err != nil {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Invalid JSON"})
+			return
+		}
+
+		id, ok := pg["id"].(string)
+		if !ok || id == "" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Missing or invalid 'id'"})
+			return
+		}
+
+		id = filepath.Base(filepath.Clean(id))
+		filePath := filepath.Join(productGroupsDir, id+".json")
+
+		data, err := json.MarshalIndent(pg, "", "  ")
+		if err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to process data"})
+			return
+		}
+
+		if err := os.WriteFile(filePath, data, 0644); err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to save product group"})
+			return
+		}
+
+		jsonResponse(w, http.StatusOK, pg)
+
+	case http.MethodDelete:
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Missing 'id' parameter"})
+			return
+		}
+
+		id = filepath.Base(filepath.Clean(id))
+		filePath := filepath.Join(productGroupsDir, id+".json")
+
+		if err := os.Remove(filePath); err != nil {
+			if os.IsNotExist(err) {
+				jsonResponse(w, http.StatusNotFound, map[string]string{"error": "Product group not found"})
+			} else {
+				jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to delete product group"})
+			}
+			return
+		}
+
+		jsonResponse(w, http.StatusOK, map[string]string{"status": "deleted"})
+
+	default:
+		w.Header().Set("Allow", "GET, POST, PUT, DELETE")
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+	}
+}
+
+// AudiencesHandler manages CRUD for audiences
+func audiencesHandler(w http.ResponseWriter, r *http.Request) {
+	if err := os.MkdirAll(audiencesDir, 0755); err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to access data directory"})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		files, err := os.ReadDir(audiencesDir)
+		if err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to read audiences"})
+			return
+		}
+
+		var audiences []json.RawMessage
+		for _, file := range files {
+			if !file.IsDir() && strings.HasSuffix(file.Name(), ".json") {
+				data, err := os.ReadFile(filepath.Join(audiencesDir, file.Name()))
+				if err == nil {
+					audiences = append(audiences, data)
+				}
+			}
+		}
+
+		if audiences == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("[]"))
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("["))
+		for i, a := range audiences {
+			if i > 0 {
+				w.Write([]byte(","))
+			}
+			w.Write(a)
+		}
+		w.Write([]byte("]"))
+
+	case http.MethodPost, http.MethodPut:
+		var aud map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&aud); err != nil {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Invalid JSON"})
+			return
+		}
+
+		id, ok := aud["id"].(string)
+		if !ok || id == "" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Missing or invalid 'id'"})
+			return
+		}
+
+		id = filepath.Base(filepath.Clean(id))
+		filePath := filepath.Join(audiencesDir, id+".json")
+
+		data, err := json.MarshalIndent(aud, "", "  ")
+		if err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to process data"})
+			return
+		}
+
+		if err := os.WriteFile(filePath, data, 0644); err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to save audience"})
+			return
+		}
+
+		jsonResponse(w, http.StatusOK, aud)
+
+	case http.MethodDelete:
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Missing 'id' parameter"})
+			return
+		}
+
+		id = filepath.Base(filepath.Clean(id))
+		filePath := filepath.Join(audiencesDir, id+".json")
+
+		if err := os.Remove(filePath); err != nil {
+			if os.IsNotExist(err) {
+				jsonResponse(w, http.StatusNotFound, map[string]string{"error": "Audience not found"})
+			} else {
+				jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to delete audience"})
+			}
+			return
+		}
+
+		jsonResponse(w, http.StatusOK, map[string]string{"status": "deleted"})
+
+	default:
+		w.Header().Set("Allow", "GET, POST, PUT, DELETE")
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+	}
+}
+
 func getGCPClient(ctx context.Context) (*http.Client, error) {
 	client, err := google.DefaultClient(ctx, "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
 		return nil, err
 	}
 	return client, nil
+}
+
+func getVertexProducts(ctx context.Context, projectId, region string) ([]Product, error) {
+	client, err := getGCPClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to authenticate with Google Cloud")
+	}
+
+	url := fmt.Sprintf("https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/models", region, projectId, region)
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("GCP API error (%d): %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var data struct {
+		Models []struct {
+			Name        string `json:"name"`
+			DisplayName string `json:"displayName"`
+			Description string `json:"description"`
+		} `json:"models"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, fmt.Errorf("Failed to parse GCP response")
+	}
+
+	var products []Product
+	for _, m := range data.Models {
+		parts := strings.Split(m.Name, "/")
+		shortId := parts[len(parts)-1]
+		displayName := m.DisplayName
+		if displayName == "" {
+			displayName = shortId
+		}
+		products = append(products, Product{
+			Id:          m.Name,
+			Name:        displayName,
+			Description: m.Description,
+			Type:        "vertex",
+		})
+	}
+	if products == nil {
+		products = []Product{}
+	}
+
+	return products, nil
 }
 
 func vertexProductsHandler(w http.ResponseWriter, r *http.Request) {
@@ -214,65 +554,18 @@ func vertexProductsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client, err := getGCPClient(r.Context())
+	products, err := getVertexProducts(r.Context(), projectId, region)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to authenticate with Google Cloud"})
-		return
-	}
-
-	url := fmt.Sprintf("https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/models", region, projectId, region)
-	resp, err := client.Get(url)
-	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		jsonResponse(w, resp.StatusCode, map[string]string{"error": fmt.Sprintf("GCP API error: %s", string(bodyBytes))})
-		return
-	}
-
-	var data struct {
-		Models []struct {
-			Name        string `json:"name"`
-			DisplayName string `json:"displayName"`
-		} `json:"models"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to parse GCP response"})
-		return
-	}
-
-	// Map to common product structure
-	var products []map[string]string
-	for _, m := range data.Models {
-		parts := strings.Split(m.Name, "/")
-		shortId := parts[len(parts)-1]
-		displayName := m.DisplayName
-		if displayName == "" {
-			displayName = shortId
+		// Try to return appropriate status codes
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "GCP API error") {
+			status = http.StatusBadGateway // or whatever makes sense
 		}
-		products = append(products, map[string]string{"id": m.Name, "name": displayName})
-	}
-	if products == nil {
-		products = []map[string]string{}
+		jsonResponse(w, status, map[string]string{"error": err.Error()})
+		return
 	}
 
 	jsonResponse(w, http.StatusOK, products)
-}
-
-type ApigeeData struct {
-	Id          string                   `json:"id"`
-	Name        string                   `json:"name"`
-	Versions    []map[string]interface{} `json:"versions,omitempty"`
-	Deployments []map[string]interface{} `json:"deployments,omitempty"`
-}
-
-type apigeeCacheEntry struct {
-	Data      []ApigeeData
-	Timestamp time.Time
 }
 
 var (
@@ -293,29 +586,19 @@ func getGcpJson(client *http.Client, url string, target interface{}) error {
 	return json.NewDecoder(resp.Body).Decode(target)
 }
 
-func apigeeProductsHandler(w http.ResponseWriter, r *http.Request) {
-	projectId := r.URL.Query().Get("projectId")
-	region := r.URL.Query().Get("region")
-
-	if projectId == "" || region == "" {
-		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "projectId and region are required"})
-		return
-	}
-
+func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product, error) {
 	cacheKey := fmt.Sprintf("%s:%s", projectId, region)
 	apigeeCacheMutex.Lock()
 	entry, ok := apigeeCache[cacheKey]
 	if ok && time.Since(entry.Timestamp) < time.Hour {
 		apigeeCacheMutex.Unlock()
-		jsonResponse(w, http.StatusOK, entry.Data)
-		return
+		return entry.Data, nil
 	}
 	apigeeCacheMutex.Unlock()
 
-	client, err := getGCPClient(r.Context())
+	client, err := getGCPClient(ctx)
 	if err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to authenticate with Google Cloud"})
-		return
+		return nil, fmt.Errorf("Failed to authenticate with Google Cloud")
 	}
 
 	deploymentsUrl := fmt.Sprintf("https://apihub.googleapis.com/v1/projects/%s/locations/%s/deployments", projectId, region)
@@ -329,19 +612,21 @@ func apigeeProductsHandler(w http.ResponseWriter, r *http.Request) {
 		Apis []struct {
 			Name        string `json:"name"`
 			DisplayName string `json:"displayName"`
+			Description string `json:"description"`
 		} `json:"apis"`
 	}
 	if err := getGcpJson(client, apisUrl, &apisResp); err != nil {
-		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
+		return nil, err
 	}
 
-	var results []ApigeeData
+	var results []Product
 
 	for _, api := range apisResp.Apis {
-		apiData := ApigeeData{
-			Id:   api.Name,
-			Name: api.DisplayName,
+		apiData := Product{
+			Id:          api.Name,
+			Name:        api.DisplayName,
+			Description: api.Description,
+			Type:        "apigee",
 		}
 		if apiData.Name == "" {
 			parts := strings.Split(api.Name, "/")
@@ -354,6 +639,11 @@ func apigeeProductsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := getGcpJson(client, versionsUrl, &versionsResp); err == nil {
 			for _, vRaw := range versionsResp.ApiVersions {
+				if apiData.Description == "" {
+					if d, ok := vRaw["description"].(string); ok && d != "" {
+						apiData.Description = d
+					}
+				}
 				vName, _ := vRaw["name"].(string)
 				specsUrl := fmt.Sprintf("https://apihub.googleapis.com/v1/%s/specs", vName)
 				var specsResp struct {
@@ -365,33 +655,46 @@ func apigeeProductsHandler(w http.ResponseWriter, r *http.Request) {
 						contentsUrl := fmt.Sprintf("https://apihub.googleapis.com/v1/%s:contents", sName)
 						var contentsResp map[string]interface{}
 						if err := getGcpJson(client, contentsUrl, &contentsResp); err == nil {
-							sRaw["contents"] = contentsResp
+							if contents, ok := contentsResp["contents"].(string); ok {
+								if apiData.SpecContents == "" {
+									apiData.SpecContents = contents
+								}
+							}
 						}
 					}
-					vRaw["specs"] = specsResp.Specs
 				}
 			}
-			apiData.Versions = versionsResp.ApiVersions
 		}
 
-		var apiDeps []map[string]interface{}
 		for _, d := range depsResp.Deployments {
 			apiVersions, _ := d["apiVersions"].([]interface{})
 			for _, av := range apiVersions {
 				avStr, _ := av.(string)
 				if strings.HasPrefix(avStr, api.Name) {
-					apiDeps = append(apiDeps, d)
+					if endpoints, ok := d["endpoints"].([]interface{}); ok && len(endpoints) > 0 {
+						if epMap, ok := endpoints[0].(map[string]interface{}); ok {
+							if uri, ok := epMap["uri"].(string); ok && uri != "" {
+								if apiData.Endpoint == "" {
+									apiData.Endpoint = uri
+								}
+							}
+						}
+					}
+					if apiData.Endpoint == "" {
+						if uri, ok := d["deploymentUri"].(string); ok && uri != "" {
+							apiData.Endpoint = uri
+						}
+					}
 					break
 				}
 			}
 		}
-		apiData.Deployments = apiDeps
 
 		results = append(results, apiData)
 	}
 
 	if results == nil {
-		results = []ApigeeData{}
+		results = []Product{}
 	}
 
 	apigeeCacheMutex.Lock()
@@ -401,7 +704,29 @@ func apigeeProductsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	apigeeCacheMutex.Unlock()
 
-	jsonResponse(w, http.StatusOK, results)
+	return results, nil
+}
+
+func apigeeProductsHandler(w http.ResponseWriter, r *http.Request) {
+	projectId := r.URL.Query().Get("projectId")
+	region := r.URL.Query().Get("region")
+
+	if projectId == "" || region == "" {
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "projectId and region are required"})
+		return
+	}
+
+	products, err := getApigeeProducts(r.Context(), projectId, region)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "GCP API error") {
+			status = http.StatusBadGateway
+		}
+		jsonResponse(w, status, map[string]string{"error": err.Error()})
+		return
+	}
+
+	jsonResponse(w, http.StatusOK, products)
 }
 
 func authCallbackHandler(w http.ResponseWriter, r *http.Request) {
@@ -557,7 +882,114 @@ func authLogoutHandler(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "logged_out"})
 }
 
+func storefrontProductsHandler(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	if name == "" {
+		// Fallback just in case
+		parts := strings.Split(r.URL.Path, "/")
+		if len(parts) >= 4 {
+			name = parts[3]
+		}
+	}
+
+	if name == "" {
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Missing storefront name"})
+		return
+	}
+
+	// Sanitize name
+	name = filepath.Base(filepath.Clean(name))
+	filePath := filepath.Join(dataDir, name+".json")
+
+	fileData, err := os.ReadFile(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			jsonResponse(w, http.StatusNotFound, map[string]string{"error": "Storefront not found"})
+		} else {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to read storefront"})
+		}
+		return
+	}
+
+	var sf Storefront
+	if err := json.Unmarshal(fileData, &sf); err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Invalid storefront data"})
+		return
+	}
+
+	var allProducts []Product
+	for _, pgConfig := range sf.ProductGroups {
+		// Read product group
+		pgFile := filepath.Join(productGroupsDir, pgConfig.ProductGroupId+".json")
+		pgData, err := os.ReadFile(pgFile)
+		if err != nil {
+			log.Printf("Failed to read product group %s: %v", pgConfig.ProductGroupId, err)
+			continue
+		}
+
+		var pg ProductGroup
+		if err := json.Unmarshal(pgData, &pg); err != nil {
+			log.Printf("Failed to parse product group %s: %v", pgConfig.ProductGroupId, err)
+			continue
+		}
+
+		for _, source := range pg.Sources {
+			var products []Product
+			var fetchErr error
+
+			if source.Type == "vertex" {
+				products, fetchErr = getVertexProducts(r.Context(), source.Name, source.Region)
+			} else if source.Type == "apigee" {
+				products, fetchErr = getApigeeProducts(r.Context(), source.Name, source.Region)
+			} else if source.Type == "manual" {
+				// Handle manual products if necessary
+				// Not fully implemented in getVertexProducts/getApigeeProducts yet
+			}
+
+			if fetchErr != nil {
+				log.Printf("Failed to fetch products for source %s: %v", source.Name, fetchErr)
+				continue
+			}
+
+			if source.EnableAll {
+				allProducts = append(allProducts, products...)
+			} else {
+				selectedMap := make(map[string]bool)
+				for _, sp := range source.SelectedProducts {
+					selectedMap[sp.Id] = true
+				}
+				for _, p := range products {
+					if selectedMap[p.Id] {
+						allProducts = append(allProducts, p)
+					}
+				}
+			}
+		}
+	}
+
+	if allProducts == nil {
+		allProducts = []Product{}
+	}
+
+	jsonResponse(w, http.StatusOK, allProducts)
+}
+
 func main() {
+	// Pre-cache Apigee products on startup if project and region are provided
+	projectId := os.Getenv("PROJECT_ID")
+	region := os.Getenv("REGION")
+	if projectId != "" && region != "" {
+		log.Printf("Pre-caching Apigee products for project: %s, region: %s", projectId, region)
+		go func() {
+			_, err := getApigeeProducts(context.Background(), projectId, region)
+			if err != nil {
+				log.Printf("Failed to pre-cache Apigee products: %v", err)
+			} else {
+				log.Println("Successfully pre-cached Apigee products")
+			}
+		}()
+	}
+
 	mux := http.NewServeMux()
 
 	// Serve landing page on / path
@@ -589,6 +1021,10 @@ func main() {
 
 	// Protected Storefronts API
 	mux.HandleFunc("/api/storefronts", authenticate(storefrontsHandler))
+	mux.HandleFunc("/api/taxonomies", authenticate(taxonomiesHandler))
+	mux.HandleFunc("/api/product-groups", authenticate(productGroupsHandler))
+	mux.HandleFunc("/api/audiences", authenticate(audiencesHandler))
+	mux.HandleFunc("/api/storefronts/{name}/products", storefrontProductsHandler)
 	mux.HandleFunc("/api/products/vertex", authenticate(vertexProductsHandler))
 	mux.HandleFunc("/api/products/apigee", authenticate(apigeeProductsHandler))
 

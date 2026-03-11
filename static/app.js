@@ -8,6 +8,18 @@ document.addEventListener("DOMContentLoaded", () => {
       file: "views/storefronts.html",
     },
     {
+      id: "product-groups",
+      label: "Product Groups",
+      icon: "inventory_2",
+      file: "views/product-groups.html",
+    },
+    {
+      id: "taxonomies",
+      label: "Taxonomies",
+      icon: "category",
+      file: "views/taxonomies.html",
+    },
+    {
       id: "audiences",
       label: "Audiences",
       icon: "people",

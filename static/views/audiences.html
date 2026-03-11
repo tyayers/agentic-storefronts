@@ -263,14 +263,58 @@
 </div>
 
 <script>
-  (function () {
+  (async function () {
+    const API = {
+      async request(endpoint, options = {}) {
+        const token = localStorage.getItem("google_credential");
+        const headers = {
+          "Content-Type": "application/json",
+          ...options.headers,
+        };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
+        const response = await fetch(`/api${endpoint}`, {
+          ...options,
+          headers,
+        });
+        if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+        if (response.status === 204) return null;
+        return response.json();
+      },
+      async getAudiences() {
+        try {
+          return await this.request("/audiences");
+        } catch (e) {
+          console.error(e);
+          return [];
+        }
+      },
+      async saveAudience(aud) {
+        return await this.request("/audiences", {
+          method: "POST",
+          body: JSON.stringify(aud),
+        });
+      },
+      async deleteAudience(id) {
+        return await this.request(`/audiences?id=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        });
+      },
+    };
+
     // --- State ---
-    let audiences = JSON.parse(localStorage.getItem("audiences")) || [];
+    let audiences = [];
     let state = {
       filter: "",
       sortKey: "name",
       sortOrder: "asc", // or 'desc'
     };
+
+    // Load data from API
+    async function loadData() {
+      audiences = await API.getAudiences();
+      renderList();
+    }
 
     // --- Elements ---
     const listView = document.getElementById("audience-list-view");
@@ -529,14 +573,14 @@
       listView.style.display = "block";
     }
 
-    function deleteAudience(id) {
-      audiences = audiences.filter((a) => a.id !== id);
-      saveData();
-      renderList();
-    }
-
-    function saveData() {
-      localStorage.setItem("audiences", JSON.stringify(audiences));
+    async function deleteAudience(id) {
+      try {
+        await API.deleteAudience(id);
+        await loadData();
+      } catch (e) {
+        console.error("Failed to delete", e);
+        alert("Failed to delete audience");
+      }
     }
 
     // --- Event Listeners ---
@@ -565,7 +609,7 @@
       });
     });
 
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const id = document.getElementById("edit-id").value;
@@ -581,34 +625,24 @@
         };
       });
 
-      if (id) {
-        // Update
-        const index = audiences.findIndex((a) => a.id === id);
-        if (index !== -1) {
-          audiences[index] = {
-            ...audiences[index],
-            name,
-            description,
-            qualifiers,
-          };
-        }
-      } else {
-        // Create
-        const newAud = {
-          id: audIdDisplay.value,
-          name,
-          description,
-          qualifiers,
-        };
-        audiences.push(newAud);
-      }
+      let savePayload = {
+        id: id || audIdDisplay.value,
+        name,
+        description,
+        qualifiers,
+      };
 
-      saveData();
-      renderList();
-      closeEditor();
+      try {
+        await API.saveAudience(savePayload);
+        await loadData();
+        closeEditor();
+      } catch (e) {
+        console.error("Failed to save", e);
+        alert("Failed to save audience");
+      }
     });
 
     // Initialize
-    renderList();
+    loadData();
   })();
 </script>

@@ -598,67 +598,14 @@
               margin-bottom: 0.5rem;
             "
           >
-            <h4 style="font-size: 1rem; margin: 0">Data Sources</h4>
-            <button
-              type="button"
-              id="btn-add-source"
-              style="
-                font-size: 0.8rem;
-                padding: 4px 8px;
-                background: var(--nav-item-active-bg);
-                color: var(--nav-item-active-text);
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-              "
-            >
-              + Add Source
-            </button>
+            <h4 style="font-size: 1rem; margin: 0">Product Groups</h4>
           </div>
 
           <div
-            id="data-sources-info-box"
-            style="
-              background-color: var(--bg-card);
-              border-left: 4px solid var(--accent-color);
-              padding: 1rem;
-              border-radius: 4px;
-              margin-bottom: 1.5rem;
-              font-size: 0.9rem;
-              color: var(--text-primary);
-            "
-          >
-            <div style="display: flex; align-items: flex-start; gap: 0.75rem">
-              <span
-                class="material-icons-round"
-                style="color: var(--accent-color); margin-top: 2px"
-                >info</span
-              >
-              <div>
-                <strong style="display: block; margin-bottom: 0.25rem"
-                  >Data Sources</strong
-                >
-                <p
-                  style="
-                    margin: 0 0 0.5rem 0;
-                    color: var(--text-secondary);
-                    line-height: 1.4;
-                  "
-                >
-                  Connect your storefront to products and APIs. Supported
-                  sources include <strong>Vertex AI Agents & Models</strong>,
-                  <strong>Apigee API Products & Tools</strong>, and
-                  <strong>Manual</strong> entry.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div
-            id="sources-container"
+            id="product-groups-container"
             style="display: flex; flex-direction: column; gap: 1rem"
           >
-            <!-- Source rows injected here -->
+            <!-- Product Group Config rows injected here -->
           </div>
         </div>
 
@@ -786,6 +733,28 @@
         }
       },
 
+      async getTaxonomies() {
+        try {
+          const token = localStorage.getItem("google_credential");
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          return await this.request("/taxonomies", { headers });
+        } catch (e) {
+          console.error(e);
+          return [];
+        }
+      },
+
+      async getProductGroups() {
+        try {
+          const token = localStorage.getItem("google_credential");
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          return await this.request("/product-groups", { headers });
+        } catch (e) {
+          console.error(e);
+          return [];
+        }
+      },
+
       async getStorefronts() {
         try {
           const token = localStorage.getItem("google_credential");
@@ -814,7 +783,9 @@
 
     // --- State ---
     let storefronts = [];
-    let audiences = JSON.parse(localStorage.getItem("audiences")) || [];
+    let taxonomies = [];
+    let productGroups = [];
+    let audiences = [];
     let state = {
       filter: "",
       sortKey: "name",
@@ -824,7 +795,17 @@
 
     // Load data from API
     async function loadData() {
-      storefronts = await API.getStorefronts();
+      const [sfData, taxData, pgData, audData] = await Promise.all([
+        API.getStorefronts(),
+        API.getTaxonomies(),
+        API.getProductGroups(),
+        API.request("/audiences"),
+      ]);
+      storefronts = sfData || [];
+      taxonomies = taxData || [];
+      productGroups = pgData || [];
+      audiences = audData || [];
+
       renderList();
     }
 
@@ -835,7 +816,9 @@
     const tableContainer = document.querySelector(".data-table-container");
     const emptyState = document.getElementById("empty-state");
     const form = document.getElementById("storefront-form");
-    const sourcesContainer = document.getElementById("sources-container");
+    const productGroupsContainer = document.getElementById(
+      "product-groups-container",
+    );
     const editorTitle = document.getElementById("editor-title");
     const searchInput = document.getElementById("storefront-search");
     const headers = document.querySelectorAll("th[data-sort]");
@@ -849,16 +832,7 @@
     const templatePreview = document.getElementById("template-preview");
     const templateName = document.getElementById("template-name");
 
-    const dataSourcesInfoBox = document.getElementById("data-sources-info-box");
-
     // --- Helpers ---
-    function updateDataSourcesInfoVisibility() {
-      if (sourcesContainer.children.length === 0) {
-        dataSourcesInfoBox.style.display = "block";
-      } else {
-        dataSourcesInfoBox.style.display = "none";
-      }
-    }
 
     function slugify(text) {
       return text
@@ -930,535 +904,142 @@
     sfTemplateUrl.addEventListener("input", renderTemplate);
 
     // --- Templates ---
-    function createSourceRow(data = {}) {
-      const id = Date.now() + Math.random().toString(36).substr(2, 9);
-      const div = document.createElement("div");
-      div.className = "source-row";
-      div.style.cssText =
-        "background: var(--bg-body); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color); position: relative;";
+    function renderProductGroups(savedConfigs = []) {
+      const container = document.getElementById("product-groups-container");
+      container.innerHTML = "";
 
-      const type = data.type || "vertex";
-      const enableAll = data.enableAll !== undefined ? data.enableAll : true;
-      const selectedProducts = data.selectedProducts || []; // For Vertex/Apigee if enableAll is false
-      const manualProducts = data.manualProducts || []; // For Manual
-
-      // Audience Config
-      let allUsers = data.allUsers !== undefined ? data.allUsers : true;
-      const selectedAudiences = data.selectedAudiences || [];
-
-      // Local state for this row's product list
-      let productFilter = "";
-      let productSortOrder = "asc";
-      let localProducts = [];
-
-      let defaultProjectId = "";
-      let defaultRegion = "us-central1";
-      try {
-        const config = JSON.parse(localStorage.getItem("app_config") || "{}");
-        defaultProjectId = config.projectId || "";
-        defaultRegion = config.region || "us-central1";
-      } catch (e) {}
-
-      div.innerHTML = `
-                <button type="button" class="btn-remove-source" style="position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; color: #ef4444; cursor: pointer;">
-                    <span class="material-icons-round" style="font-size: 1.2rem;">close</span>
-                </button>
-                <div style="margin-bottom: 1rem;">
-                    <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Type</label>
-                    <select class="source-type" style="width: 100%; max-width: 300px; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
-                        <option value="vertex" ${type === "vertex" ? "selected" : ""}>Vertex Products</option>
-                        <option value="apigee" ${type === "apigee" ? "selected" : ""}>Apigee Products</option>
-                        <option value="manual" ${type === "manual" ? "selected" : ""}>Manual</option>
-                    </select>
-                </div>
-
-                <!-- Config Container -->
-                <div class="config-container" style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-bottom: 1rem;">
-                    <!-- Content injected by JS -->
-                </div>
-
-                <!-- Audience Configuration -->
-                <div style="border-top: 1px solid var(--border-color); padding: 1rem 0; margin-bottom: 0.5rem;">
-                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <div>
-                             <span style="font-size: 0.9rem; font-weight: 500;">Access Control</span>
-                             <div style="font-size: 0.75rem; color: var(--text-secondary);">Who can see products from this source?</div>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 0.85rem; color: var(--text-secondary);">All Users</span>
-                            <label class="switch">
-                                <input type="checkbox" class="all-users-switch" ${allUsers ? "checked" : ""}>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="audience-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
-                        <!-- Audiences injected here -->
-                    </div>
-                     <div class="no-audiences-msg" style="display: none; color: var(--text-secondary); font-size: 0.8rem; font-style: italic;">No audiences defined. Create one in the Audiences tab.</div>
-                </div>
-            `;
-
-      // Audience Logic
-      const allUsersSwitch = div.querySelector(".all-users-switch");
-      const audienceList = div.querySelector(".audience-list");
-      const noAudiencesMsg = div.querySelector(".no-audiences-msg");
-
-      function renderAudiences() {
-        audienceList.innerHTML = "";
-        if (audiences.length === 0) {
-          noAudiencesMsg.style.display = "block";
-          return;
-        }
-        noAudiencesMsg.style.display = "none";
-
-        audiences.forEach((aud) => {
-          const label = document.createElement("label");
-          label.className = "service-chip"; // Reuse chip style
-          const isSelected = selectedAudiences.includes(aud.id);
-
-          label.innerHTML = `
-                    <input type="checkbox" value="${aud.id}" ${isSelected ? "checked" : ""}>
-                    <span>${aud.name}</span>
-                `;
-
-          const cb = label.querySelector("input");
-          cb.addEventListener("change", (e) => {
-            if (e.target.checked) {
-              // If checking an audience, turn OFF All Users
-              if (allUsers) {
-                allUsers = false;
-                allUsersSwitch.checked = false;
-                data.allUsers = false;
-                // We don't need to clear selectedAudiences here because we are adding to it
-              }
-
-              if (!selectedAudiences.includes(aud.id))
-                selectedAudiences.push(aud.id);
-            } else {
-              const idx = selectedAudiences.indexOf(aud.id);
-              if (idx > -1) selectedAudiences.splice(idx, 1);
-
-              // If unchecking leaves no audiences selected, turn ON All Users
-              if (selectedAudiences.length === 0) {
-                allUsers = true;
-                allUsersSwitch.checked = true;
-                data.allUsers = true;
-              }
-            }
-            data.selectedAudiences = selectedAudiences;
-            // We don't re-render here to avoid losing focus/state, just update data
-            // But if we want to update other chips visual state based on logic (none for now)
-          });
-
-          audienceList.appendChild(label);
-        });
+      if (productGroups.length === 0) {
+        container.innerHTML = `<div style="text-align: center; padding: 2rem; color: var(--text-secondary); background: var(--bg-card); border-radius: 4px; border: 1px dashed var(--border-color);">No product groups defined. Create one first.</div>`;
+        return;
       }
 
-      allUsersSwitch.addEventListener("change", (e) => {
-        allUsers = e.target.checked;
-        data.allUsers = allUsers;
+      productGroups.forEach((pg) => {
+        const config = savedConfigs.find((c) => c.productGroupId === pg.id) || {
+          productGroupId: pg.id,
+          allUsers: true,
+          selectedAudiences: [],
+        };
+        const isEnabled = !!savedConfigs.find(
+          (c) => c.productGroupId === pg.id,
+        );
 
-        if (allUsers) {
-          // If All Users is ON, clear selected audiences
-          selectedAudiences.length = 0; // Clear array
-          data.selectedAudiences = selectedAudiences;
-          renderAudiences(); // Re-render to uncheck boxes
-        }
-      });
+        let allUsers = config.allUsers;
+        const selectedAudiences = config.selectedAudiences || [];
 
-      renderAudiences();
+        const div = document.createElement("div");
+        div.className = "product-group-row";
+        div.style.cssText =
+          "background: var(--bg-body); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color); margin-bottom: 0.5rem;";
+        // Keep reference to ID for saving
+        div.dataset.pgId = pg.id;
 
-      const typeSelect = div.querySelector(".source-type");
-      const configContainer = div.querySelector(".config-container");
+        div.innerHTML = `
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <div style="display: flex; align-items: center; gap: 0.75rem;">
+                      <span class="material-icons-round" style="color: var(--text-secondary);">inventory_2</span>
+                      <span style="font-weight: 500; font-size: 1rem;">${pg.name}</span>
+                  </div>
+                  <label class="switch">
+                      <input type="checkbox" class="enable-group-switch" ${isEnabled ? "checked" : ""}>
+                      <span class="slider"></span>
+                  </label>
+              </div>
 
-      function renderConfig() {
-        const currentType = typeSelect.value;
-        configContainer.innerHTML = "";
+              <div class="audience-config-area" style="display: ${isEnabled ? "block" : "none"}; border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 1rem;">
+                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                      <div>
+                           <span style="font-size: 0.9rem; font-weight: 500;">Access Control</span>
+                           <div style="font-size: 0.75rem; color: var(--text-secondary);">Who can access this group?</div>
+                      </div>
+                      <div style="display: flex; align-items: center; gap: 0.5rem;">
+                          <span style="font-size: 0.85rem; color: var(--text-secondary);">All Users</span>
+                          <label class="switch">
+                              <input type="checkbox" class="all-users-switch" ${allUsers ? "checked" : ""}>
+                              <span class="slider"></span>
+                          </label>
+                      </div>
+                  </div>
 
-        if (currentType === "vertex" || currentType === "apigee") {
-          // --- Vertex / Apigee Mode ---
-          const modeDiv = document.createElement("div");
-
-          let isChecked = data.type === currentType ? enableAll : true;
-
-          modeDiv.innerHTML = `
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                    <div>
-                        <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Google Cloud Project Id</label>
-                        <input type="text" class="source-name" value="${data.name || defaultProjectId}" placeholder="e.g. my-gcp-project" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
-                    </div>
-                    <div>
-                        <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Region</label>
-                        <input type="text" list="region-options-${id}" class="source-region" value="${data.region || defaultRegion}" placeholder="e.g. us-central1" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
-                        <datalist id="region-options-${id}">
-                            <option value="us-central1"></option>
-                            <option value="us-east1"></option>
-                            <option value="us-west1"></option>
-                            <option value="europe-west1"></option>
-                            <option value="asia-east1"></option>
-                        </datalist>
-                    </div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <span style="font-size: 0.9rem; font-weight: 500;">Enable All Products</span>
-                    <label class="switch">
-                        <input type="checkbox" class="enable-all-switch" ${isChecked ? "checked" : ""}>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-
-                <div class="product-selection-area" style="display: ${isChecked ? "none" : "block"};">
-                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Select products to include:</div>
-
-                    <!-- Controls -->
-                    <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
-                        <div style="position: relative; flex: 1;">
-                             <span class="material-icons-round" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); font-size: 1.1rem; color: var(--text-secondary);">search</span>
-                             <input type="text" class="product-search" placeholder="Filter products..." style="width: 100%; padding: 0.5rem 0.5rem 0.5rem 2.2rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
-                        </div>
-                        <button type="button" class="btn-sort-products" title="Sort A-Z" style="padding: 0 0.75rem; border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 4px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center;">
-                            <span class="material-icons-round">sort_by_alpha</span>
-                            <span class="sort-indicator" style="font-size: 0.8rem; margin-left: 2px;"></span>
-                        </button>
-                    </div>
-
-                    <div class="product-list" style="max-height: 250px; overflow-y: auto;">
-                        <!-- Products injected here -->
-                    </div>
-                </div>
-             `;
-
-          const switchEl = modeDiv.querySelector(".enable-all-switch");
-          const selectionArea = modeDiv.querySelector(
-            ".product-selection-area",
-          );
-          const searchInput = modeDiv.querySelector(".product-search");
-          const sortBtn = modeDiv.querySelector(".btn-sort-products");
-          const productList = modeDiv.querySelector(".product-list");
-
-          async function fetchAndRenderProducts() {
-            productList.innerHTML = `<div class="loader" style="width: 20px; height: 20px; border-width: 2px; margin: 1rem auto;"></div>`;
-            const projId = modeDiv.querySelector(".source-name").value;
-            const reg = modeDiv.querySelector(".source-region")
-              ? modeDiv.querySelector(".source-region").value
-              : "";
-            localProducts = await API.getProducts(currentType, projId, reg);
-            renderProductList();
-          }
-
-          function renderProductList() {
-            productList.innerHTML = "";
-
-            // Filter
-            let filtered = localProducts.filter((p) =>
-              p.name.toLowerCase().includes(productFilter.toLowerCase()),
-            );
-
-            // Sort
-            filtered.sort((a, b) => {
-              if (productSortOrder === "asc")
-                return a.name.localeCompare(b.name);
-              return b.name.localeCompare(a.name);
-            });
-
-            if (filtered.length === 0) {
-              productList.innerHTML = `<div style="padding: 1rem; text-align: center; color: var(--text-secondary); font-size: 0.85rem;">No products found</div>`;
-              return;
-            }
-
-            filtered.forEach((p) => {
-              const isProdChecked =
-                data.type === currentType && !isChecked
-                  ? selectedProducts.includes(p.id)
-                  : false;
-
-              // Maintain checkbox state even if filtering/sorting re-renders
-              // Note: In a real app we might sync this to a transient state object if the DOM is destroyed,
-              // but here 'selectedProducts' is our source of truth.
-              // However, 'selectedProducts' only has SAVED data.
-              // If user toggles a box, then filters, the toggle might be lost if we don't save it back to 'selectedProducts' or a temp set.
-              // For this prototype, let's assume immediate persistence to the 'data' object reference passed in.
-
-              const row = document.createElement("div");
-              row.style.cssText =
-                "display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: var(--bg-card); margin-bottom: 4px; border-radius: 4px; border: 1px solid transparent;";
-              row.innerHTML = `
-                        <span>${p.name}</span>
-                        <label class="switch" style="width: 34px; height: 18px;">
-                            <input type="checkbox" class="product-toggle" value="${p.id}" ${selectedProducts.includes(p.id) ? "checked" : ""}>
-                            <span class="slider" style="border-radius: 18px;"></span>
-                        </label>
-                  `;
-
-              // Update our data model immediately on toggle so filtering doesn't lose state
-              const toggle = row.querySelector(".product-toggle");
-              toggle.addEventListener("change", (e) => {
-                if (e.target.checked) {
-                  if (!selectedProducts.includes(p.id))
-                    selectedProducts.push(p.id);
-                } else {
-                  const idx = selectedProducts.indexOf(p.id);
-                  if (idx > -1) selectedProducts.splice(idx, 1);
-                }
-                data.selectedProducts = selectedProducts; // Ensure reference update
-              });
-
-              productList.appendChild(row);
-            });
-          }
-
-          switchEl.addEventListener("change", (e) => {
-            selectionArea.style.display = e.target.checked ? "none" : "block";
-            isChecked = e.target.checked;
-            data.enableAll = isChecked;
-            if (!isChecked && localProducts.length === 0) {
-              fetchAndRenderProducts();
-            }
-          });
-
-          modeDiv
-            .querySelector(".source-name")
-            .addEventListener("change", () => {
-              if (!isChecked) fetchAndRenderProducts();
-            });
-
-          if (modeDiv.querySelector(".source-region")) {
-            modeDiv
-              .querySelector(".source-region")
-              .addEventListener("change", () => {
-                if (!isChecked) fetchAndRenderProducts();
-              });
-          }
-
-          searchInput.addEventListener("input", (e) => {
-            productFilter = e.target.value;
-            renderProductList();
-          });
-
-          sortBtn.addEventListener("click", () => {
-            productSortOrder = productSortOrder === "asc" ? "desc" : "asc";
-            // Visual indicator
-            const icon = sortBtn.querySelector(".material-icons-round");
-            icon.textContent =
-              productSortOrder === "asc" ? "sort_by_alpha" : "sort_by_alpha"; // Icon is same, maybe change color?
-            sortBtn.style.color =
-              productSortOrder === "asc"
-                ? "var(--text-secondary)"
-                : "var(--accent-color)";
-            renderProductList();
-          });
-
-          // Initial render of list
-          if (!isChecked) {
-            fetchAndRenderProducts();
-          } else {
-            renderProductList();
-          }
-
-          configContainer.appendChild(modeDiv);
-        } else if (currentType === "manual") {
-          // --- Manual Mode ---
-          const manualDiv = document.createElement("div");
-
-          manualDiv.innerHTML = `
-                <div class="manual-list-view">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <label style="font-weight: 500; font-size: 0.9rem;">Products</label>
-                        <button type="button" class="btn-add-manual" style="font-size: 0.8rem; padding: 4px 8px; background: var(--nav-item-active-bg); color: var(--nav-item-active-text); border: none; border-radius: 4px; cursor: pointer;">
-                            + Add Product
-                        </button>
-                    </div>
-                    <div class="manual-list" style="border: 1px solid var(--border-color); border-radius: 4px; overflow: hidden;">
-                        <!-- List Items -->
-                    </div>
-                </div>
-
-                <div class="manual-editor-view" style="display: none; background: var(--bg-card); padding: 1rem; border: 1px solid var(--border-color); border-radius: 4px; margin-top: 0.5rem;">
-                    <h5 class="editor-mode-title" style="margin-bottom: 1rem; font-size: 0.9rem;">Add Product</h5>
-                    <input type="hidden" class="edit-index">
-
-                    <div style="margin-bottom: 0.75rem;">
-                        <input type="text" class="manual-name" placeholder="Product Name" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary);">
-                    </div>
-                    <div style="margin-bottom: 0.75rem;">
-                        <input type="text" class="manual-desc" placeholder="Description" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary);">
-                    </div>
-                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem;">
-                        <input type="text" class="manual-url" placeholder="Endpoint / Spec URL" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary);">
-                        <select class="manual-type" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary);">
-                            <option value="rest">REST</option>
-                            <option value="grpc">gRPC</option>
-                            <option value="json-rpc">JSON-RPC</option>
-                            <option value="mcp">MCP</option>
-                            <option value="a2a">A2A</option>
-                        </select>
-                        <select class="manual-auth" style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-primary);">
-                            <option value="none">No Auth</option>
-                            <option value="oauth">OAuth</option>
-                            <option value="apikey">API Key</option>
-                        </select>
-                    </div>
-
-                    <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-                        <button type="button" class="btn-cancel-manual" style="padding: 4px 12px; background: transparent; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; color: var(--text-primary);">Cancel</button>
-                        <button type="button" class="btn-save-manual" style="padding: 4px 12px; background: var(--accent-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Save</button>
-                    </div>
-                </div>
+                  <div class="audience-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                      <!-- Audiences injected here -->
+                  </div>
+                   <div class="no-audiences-msg" style="display: none; color: var(--text-secondary); font-size: 0.8rem; font-style: italic;">No audiences defined.</div>
+              </div>
           `;
 
-          const listView = manualDiv.querySelector(".manual-list-view");
-          const listContainer = manualDiv.querySelector(".manual-list");
-          const editorView = manualDiv.querySelector(".manual-editor-view");
-          const btnAdd = manualDiv.querySelector(".btn-add-manual");
+        const enableSwitch = div.querySelector(".enable-group-switch");
+        const configArea = div.querySelector(".audience-config-area");
+        enableSwitch.addEventListener("change", (e) => {
+          configArea.style.display = e.target.checked ? "block" : "none";
+        });
 
-          // Editor inputs
-          const inpName = manualDiv.querySelector(".manual-name");
-          const inpDesc = manualDiv.querySelector(".manual-desc");
-          const inpUrl = manualDiv.querySelector(".manual-url");
-          const inpType = manualDiv.querySelector(".manual-type");
-          const inpAuth = manualDiv.querySelector(".manual-auth");
-          const inpIndex = manualDiv.querySelector(".edit-index");
-          const title = manualDiv.querySelector(".editor-mode-title");
+        // Audience Logic
+        const allUsersSwitch = div.querySelector(".all-users-switch");
+        const audienceList = div.querySelector(".audience-list");
+        const noAudiencesMsg = div.querySelector(".no-audiences-msg");
 
-          function renderManualList() {
-            listContainer.innerHTML = "";
-            if (manualProducts.length === 0) {
-              listContainer.innerHTML = `<div style="padding: 1rem; text-align: center; color: var(--text-secondary); font-size: 0.85rem;">No products defined</div>`;
-              return;
-            }
-
-            manualProducts.forEach((prod, idx) => {
-              const row = document.createElement("div");
-              row.style.cssText =
-                "display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid var(--border-color); background: var(--bg-card);";
-              if (idx === manualProducts.length - 1)
-                row.style.borderBottom = "none";
-
-              row.innerHTML = `
-                    <span style="font-weight: 500; font-size: 0.9rem;">${prod.name}</span>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button type="button" class="btn-edit-item" style="background: none; border: none; cursor: pointer; color: var(--text-secondary);"><span class="material-icons-round" style="font-size: 1.1rem;">edit</span></button>
-                        <button type="button" class="btn-delete-item" style="background: none; border: none; cursor: pointer; color: #ef4444;"><span class="material-icons-round" style="font-size: 1.1rem;">delete</span></button>
-                    </div>
-                  `;
-
-              row
-                .querySelector(".btn-edit-item")
-                .addEventListener("click", () => openManualEditor(idx));
-              row
-                .querySelector(".btn-delete-item")
-                .addEventListener("click", () => {
-                  manualProducts.splice(idx, 1);
-                  renderManualList();
-                });
-
-              listContainer.appendChild(row);
-            });
+        function renderAudiences() {
+          audienceList.innerHTML = "";
+          if (audiences.length === 0) {
+            noAudiencesMsg.style.display = "block";
+            return;
           }
+          noAudiencesMsg.style.display = "none";
 
-          function openManualEditor(index = -1) {
-            listView.style.display = "none";
-            editorView.style.display = "block";
-            inpIndex.value = index;
+          audiences.forEach((aud) => {
+            const label = document.createElement("label");
+            label.className = "service-chip";
+            const isSelected = selectedAudiences.includes(aud.id);
 
-            if (index > -1) {
-              const prod = manualProducts[index];
-              title.textContent = "Edit Product";
-              inpName.value = prod.name;
-              inpDesc.value = prod.description;
-              inpUrl.value = prod.endpointUrl;
-              inpType.value = prod.type || "rest";
-              inpAuth.value = prod.auth;
-            } else {
-              title.textContent = "Add Product";
-              inpName.value = "";
-              inpDesc.value = "";
-              inpUrl.value = "";
-              inpType.value = "rest";
-              inpAuth.value = "none";
-            }
-          }
+            label.innerHTML = `
+                        <input type="checkbox" class="aud-cb" value="${aud.id}" ${isSelected ? "checked" : ""}>
+                        <span>${aud.name}</span>
+                    `;
 
-          function closeManualEditor() {
-            editorView.style.display = "none";
-            listView.style.display = "block";
-          }
-
-          btnAdd.addEventListener("click", () => openManualEditor(-1));
-
-          manualDiv
-            .querySelector(".btn-cancel-manual")
-            .addEventListener("click", closeManualEditor);
-
-          manualDiv
-            .querySelector(".btn-save-manual")
-            .addEventListener("click", () => {
-              const idx = parseInt(inpIndex.value);
-              const newProd = {
-                name: inpName.value,
-                description: inpDesc.value,
-                endpointUrl: inpUrl.value,
-                type: inpType.value,
-                auth: inpAuth.value,
-              };
-
-              if (!newProd.name) {
-                alert("Product name is required");
-                return;
-              }
-
-              if (idx > -1) {
-                manualProducts[idx] = newProd;
+            const cb = label.querySelector("input");
+            cb.addEventListener("change", (e) => {
+              if (e.target.checked) {
+                if (allUsers) {
+                  allUsers = false;
+                  allUsersSwitch.checked = false;
+                }
+                if (!selectedAudiences.includes(aud.id))
+                  selectedAudiences.push(aud.id);
               } else {
-                manualProducts.push(newProd);
+                const idx = selectedAudiences.indexOf(aud.id);
+                if (idx > -1) selectedAudiences.splice(idx, 1);
+                if (selectedAudiences.length === 0) {
+                  allUsers = true;
+                  allUsersSwitch.checked = true;
+                }
               }
-              renderManualList();
-              closeManualEditor();
             });
 
-          renderManualList();
-          configContainer.appendChild(manualDiv);
+            audienceList.appendChild(label);
+          });
         }
-      }
 
-      typeSelect.addEventListener("change", () => {
-        localProducts = [];
-        renderConfig();
+        allUsersSwitch.addEventListener("change", (e) => {
+          allUsers = e.target.checked;
+          if (allUsers) {
+            selectedAudiences.length = 0;
+            renderAudiences();
+          }
+        });
+
+        renderAudiences();
+        container.appendChild(div);
       });
-
-      div.querySelector(".btn-remove-source").addEventListener("click", () => {
-        div.remove();
-        updateDataSourcesInfoVisibility();
-      });
-
-      // Attach data reference for form submit
-      div.manualData = manualProducts;
-
-      // Initial Render
-      renderConfig();
-
-      return div;
     }
-
     function createTableRow(sf) {
       const tr = document.createElement("tr");
       tr.style.cursor = "pointer";
 
-      const sourceCount = sf.sources ? sf.sources.length : 0;
-      const types = sf.sources
-        ? [
-            ...new Set(
-              sf.sources.map((s) => {
-                if (s.type === "vertex") return "Vertex";
-                if (s.type === "apigee") return "Apigee";
-                return "Manual";
-              }),
-            ),
-          ].join(", ")
-        : "";
+      const sourceCount = sf.productGroups ? sf.productGroups.length : 0;
+      const types =
+        sf.productGroups && sf.productGroups.length > 0
+          ? "Groups Configured"
+          : "None";
 
       tr.innerHTML = `
           <td>
@@ -1527,12 +1108,12 @@
             break;
           case "types":
             // Basic sort by first type string
-            valA = a.sources && a.sources[0] ? a.sources[0].type : "";
-            valB = b.sources && b.sources[0] ? b.sources[0].type : "";
+            valA = "";
+            valB = "";
             break;
           case "sources":
-            valA = a.sources ? a.sources.length : 0;
-            valB = b.sources ? b.sources.length : 0;
+            valA = a.productGroups ? a.productGroups.length : 0;
+            valB = b.productGroups ? b.productGroups.length : 0;
             break;
           default:
             return 0;
@@ -1591,7 +1172,7 @@
       editorView.style.display = "block";
 
       // Reset form
-      sourcesContainer.innerHTML = "";
+      productGroupsContainer.innerHTML = "";
       document.getElementById("edit-id").value = "";
       document.getElementById("sf-name").value = "";
       document.getElementById("sf-support-mcp").checked = false;
@@ -1636,16 +1217,12 @@
         document.getElementById("sf-api-key").value = sf.authApiKey || "";
         document.getElementById("sf-auth-domain").value = sf.authDomain || "";
 
-        (sf.sources || []).forEach((s) => {
-          sourcesContainer.appendChild(createSourceRow(s));
-        });
+        renderProductGroups(sf.productGroups || []);
       } else {
         editorTitle.textContent = "Create Storefront";
         // Add one empty source row by default
-        sourcesContainer.appendChild(createSourceRow());
+        renderProductGroups([]);
       }
-
-      updateDataSourcesInfoVisibility();
     }
 
     function closeEditor() {
@@ -1672,15 +1249,6 @@
     document
       .getElementById("btn-add-storefront")
       .addEventListener("click", () => openEditor());
-
-    document.getElementById("btn-add-source").addEventListener("click", () => {
-      const row = createSourceRow();
-      row.classList.add("fade-in-row");
-      sourcesContainer.prepend(row);
-      // Optional: scroll to the new row if needed, though prepend usually puts it in view if at top
-      row.scrollIntoView({ behavior: "smooth", block: "center" });
-      updateDataSourcesInfoVisibility();
-    });
 
     document
       .getElementById("btn-cancel")
@@ -1722,47 +1290,23 @@
       const templateId = BUILTIN_TEMPLATES[state.currentTemplateIndex].id;
 
       // Collect sources
-      const sourceRows = sourcesContainer.querySelectorAll(".source-row");
-      const sources = Array.from(sourceRows).map((row) => {
-        const sourceNameInput = row.querySelector(".source-name");
-        const sourceName = sourceNameInput ? sourceNameInput.value : "";
-        const sourceRegionInput = row.querySelector(".source-region");
-        const region = sourceRegionInput ? sourceRegionInput.value : "";
-        const type = row.querySelector(".source-type").value;
+      const sourceRows =
+        productGroupsContainer.querySelectorAll(".product-group-row");
+      const productGroups = Array.from(sourceRows)
+        .filter((row) => row.querySelector(".enable-group-switch").checked)
+        .map((row) => {
+          const productGroupId = row.dataset.pgId;
+          const allUsers = row.querySelector(".all-users-switch").checked;
+          const selectedAudiences = Array.from(
+            row.querySelectorAll(".aud-cb:checked"),
+          ).map((cb) => cb.value);
 
-        // Capture Audience Config
-        const allUsers = row.querySelector(".all-users-switch").checked;
-        const selectedAudiences = Array.from(
-          row.querySelectorAll(".audience-list input:checked"),
-        ).map((cb) => cb.value);
-
-        let sourceData = {
-          name: sourceName,
-          region,
-          type,
-          allUsers,
-          selectedAudiences,
-        };
-
-        if (type === "vertex" || type === "apigee") {
-          const enableAll = row.querySelector(".enable-all-switch").checked;
-          sourceData.enableAll = enableAll;
-          if (!enableAll) {
-            // Collect selected product IDs
-            const checkedProds = Array.from(
-              row.querySelectorAll(".product-toggle:checked"),
-            ).map((cb) => cb.value);
-            sourceData.selectedProducts = checkedProds;
-          } else {
-            sourceData.selectedProducts = []; // Cleared if enable all is true
-          }
-        } else if (type === "manual") {
-          // Collect manual products
-          sourceData.manualProducts = row.manualData || [];
-        }
-
-        return sourceData;
-      });
+          return {
+            productGroupId,
+            allUsers,
+            selectedAudiences,
+          };
+        });
 
       let savePayload;
       if (id) {
@@ -1778,7 +1322,7 @@
             authDomain,
             templateUrl,
             templateId,
-            sources,
+            productGroups,
           };
         }
       } else {
@@ -1792,7 +1336,7 @@
           authDomain,
           templateUrl,
           templateId,
-          sources,
+          productGroups,
         };
       }
 
