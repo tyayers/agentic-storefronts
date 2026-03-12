@@ -25,6 +25,7 @@ const taxonomiesDir = "./data/taxonomies"
 const productGroupsDir = "./data/product-groups"
 const audiencesDir = "./data/audiences"
 const imagesDir = "./data/images"
+const sessionsDir = "./data/sessions"
 
 var oauthConf = &oauth2.Config{
 	ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
@@ -42,9 +43,6 @@ func init() {
 		oauthConf.ClientID = "609874082793-0ad22eutlkcrrs0uehm8vekut6j07u2j.apps.googleusercontent.com"
 	}
 }
-
-var sessions = make(map[string]string)
-var sessionsMutex sync.Mutex
 
 func generateSessionID() string {
 	b := make([]byte, 32)
@@ -831,9 +829,14 @@ func authCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	os.WriteFile(filepath.Join("./data/users", email+".json"), fileData, 0644)
 
 	sessionID := generateSessionID()
-	sessionsMutex.Lock()
-	sessions[sessionID] = email
-	sessionsMutex.Unlock()
+
+	os.MkdirAll(sessionsDir, 0755)
+	sessionData := map[string]string{
+		"id":    sessionID,
+		"email": email,
+	}
+	sessionFile, _ := json.MarshalIndent(sessionData, "", "  ")
+	os.WriteFile(filepath.Join(sessionsDir, sessionID+".json"), sessionFile, 0644)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
@@ -859,12 +862,24 @@ func authTokenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionsMutex.Lock()
-	email, ok := sessions[cookie.Value]
-	sessionsMutex.Unlock()
+	sessionID := filepath.Base(filepath.Clean(cookie.Value))
+	sessionFilePath := filepath.Join(sessionsDir, sessionID+".json")
 
-	if !ok {
+	sessionFileData, err := os.ReadFile(sessionFilePath)
+	if err != nil {
 		jsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "Invalid session"})
+		return
+	}
+
+	var sessionData map[string]string
+	if err := json.Unmarshal(sessionFileData, &sessionData); err != nil {
+		jsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "Invalid session data"})
+		return
+	}
+
+	email, ok := sessionData["email"]
+	if !ok || email == "" {
+		jsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "Invalid session data"})
 		return
 	}
 
@@ -923,9 +938,9 @@ func authTokenHandler(w http.ResponseWriter, r *http.Request) {
 func authLogoutHandler(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session_id")
 	if err == nil {
-		sessionsMutex.Lock()
-		delete(sessions, cookie.Value)
-		sessionsMutex.Unlock()
+		sessionID := filepath.Base(filepath.Clean(cookie.Value))
+		sessionFilePath := filepath.Join(sessionsDir, sessionID+".json")
+		os.Remove(sessionFilePath)
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
