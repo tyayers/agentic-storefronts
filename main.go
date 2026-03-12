@@ -24,6 +24,7 @@ const dataDir = "./data/storefronts"
 const taxonomiesDir = "./data/taxonomies"
 const productGroupsDir = "./data/product-groups"
 const audiencesDir = "./data/audiences"
+const imagesDir = "./data/images"
 
 var oauthConf = &oauth2.Config{
 	ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
@@ -1023,6 +1024,9 @@ func storefrontProductsHandler(w http.ResponseWriter, r *http.Request) {
 						if sp.DisplayStyle != "" {
 							p.DisplayStyle = sp.DisplayStyle
 						}
+						if sp.Image != "" {
+							p.Image = sp.Image
+						}
 						allProducts = append(allProducts, p)
 					}
 				}
@@ -1035,6 +1039,79 @@ func storefrontProductsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonResponse(w, http.StatusOK, allProducts)
+}
+
+func imagesHandler(w http.ResponseWriter, r *http.Request) {
+	if err := os.MkdirAll(imagesDir, 0755); err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to access images directory"})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		// List images
+		files, err := os.ReadDir(imagesDir)
+		if err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to read images directory"})
+			return
+		}
+
+		var images []string
+		for _, file := range files {
+			if !file.IsDir() {
+				ext := strings.ToLower(filepath.Ext(file.Name()))
+				if ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".svg" || ext == ".webp" {
+					images = append(images, "/images/"+file.Name())
+				}
+			}
+		}
+
+		if images == nil {
+			images = []string{}
+		}
+
+		jsonResponse(w, http.StatusOK, images)
+
+	case http.MethodPost:
+		// Upload image
+		// 10 MB limit
+		r.ParseMultipartForm(10 << 20)
+		file, handler, err := r.FormFile("image")
+		if err != nil {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Error retrieving file from form"})
+			return
+		}
+		defer file.Close()
+
+		ext := strings.ToLower(filepath.Ext(handler.Filename))
+		if ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".gif" && ext != ".svg" && ext != ".webp" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Invalid file type"})
+			return
+		}
+
+		// Sanitize filename to prevent directory traversal or weird chars
+		filename := filepath.Base(filepath.Clean(handler.Filename))
+		// Optional: prepend timestamp or random string to avoid overwriting
+		filename = fmt.Sprintf("%d-%s", time.Now().Unix(), filename)
+
+		dst, err := os.Create(filepath.Join(imagesDir, filename))
+		if err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Error creating file on server"})
+			return
+		}
+		defer dst.Close()
+
+		if _, err := io.Copy(dst, file); err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Error saving file"})
+			return
+		}
+
+		jsonResponse(w, http.StatusOK, map[string]string{"url": "/images/" + filename})
+
+	default:
+		w.Header().Set("Allow", "GET, POST")
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+	}
 }
 
 func main() {
@@ -1119,9 +1196,14 @@ func main() {
 	mux.HandleFunc("/api/taxonomies", authenticate(taxonomiesHandler))
 	mux.HandleFunc("/api/product-groups", authenticate(productGroupsHandler))
 	mux.HandleFunc("/api/audiences", authenticate(audiencesHandler))
+	mux.HandleFunc("/api/images", authenticate(imagesHandler))
 	mux.HandleFunc("/api/storefronts/{name}/products", storefrontProductsHandler)
 	mux.HandleFunc("/api/products/vertex", authenticate(vertexProductsHandler))
 	mux.HandleFunc("/api/products/apigee", authenticate(apigeeProductsHandler))
+
+	// Serve uploaded images statically
+	imagesFs := http.FileServer(http.Dir("./data/images"))
+	mux.Handle("/images/", http.StripPrefix("/images/", imagesFs))
 
 	log.Println("Server listening on :8080")
 	if err := http.ListenAndServe(":8080", mux); err != nil {

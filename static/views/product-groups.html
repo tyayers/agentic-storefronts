@@ -506,6 +506,42 @@
         }
       },
 
+      async getImages() {
+        try {
+          const token = localStorage.getItem("google_credential");
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          return await this.request("/images", { headers });
+        } catch (e) {
+          console.error(e);
+          return [];
+        }
+      },
+
+      async uploadImage(file) {
+        try {
+          const token = localStorage.getItem("google_credential");
+          const formData = new FormData();
+          formData.append("image", file);
+
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          // DO NOT set Content-Type for FormData, browser sets it with boundary
+
+          const response = await fetch(`/api/images`, {
+            method: "POST",
+            body: formData,
+            headers,
+          });
+
+          if (!response.ok) {
+            throw new Error(`API Error: ${response.statusText}`);
+          }
+          return await response.json();
+        } catch (e) {
+          console.error(e);
+          return null;
+        }
+      },
+
       async getProductGroups() {
         try {
           const token = localStorage.getItem("google_credential");
@@ -537,6 +573,7 @@
     // --- State ---
     let productGroups = [];
     let taxonomies = [];
+    let availableImages = [];
     let audiences = JSON.parse(localStorage.getItem("audiences")) || [];
     let state = {
       filter: "",
@@ -546,9 +583,10 @@
 
     // Load data from API
     async function loadData() {
-      [productGroups, taxonomies] = await Promise.all([
+      [productGroups, taxonomies, availableImages] = await Promise.all([
         API.getProductGroups(),
         API.getTaxonomies(),
+        API.getImages(),
       ]);
       populateTaxonomySelect();
       renderList();
@@ -796,6 +834,19 @@
                           <input type="text" class="prod-display-style" value="${spObj && spObj.displayStyle ? spObj.displayStyle : p.displayStyle || p.style || ""}" style="width: 100%; padding: 4px 8px; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-body); color: var(--text-primary);">
                       </div>
                       <div style="margin-bottom: 0.5rem;">
+                          <label style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 2px;">Image</label>
+                          <div style="display: flex; gap: 0.5rem; align-items: center;">
+                              <select class="prod-image-select" style="flex: 1; padding: 4px 8px; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-body); color: var(--text-primary);">
+                                  <option value="">No Image</option>
+                              </select>
+                              <label class="btn-upload-label" style="cursor: pointer; padding: 4px 8px; font-size: 0.8rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); white-space: nowrap;">
+                                  <span class="upload-text">Upload</span>
+                                  <input type="file" class="prod-image-upload" accept="image/*" style="display: none;">
+                              </label>
+                          </div>
+                          <img class="prod-image-preview" src="${spObj && spObj.image ? spObj.image : p.image || ""}" style="display: ${spObj && spObj.image ? "block" : "none"}; max-width: 100px; max-height: 100px; margin-top: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                      </div>
+                      <div style="margin-bottom: 0.5rem;">
                           <label style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 2px;">Categories</label>
                           <div class="prod-cat-chips" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
                       </div>
@@ -815,6 +866,75 @@
               const dispNameInput = row.querySelector(".prod-display-name");
               const dispDescInput = row.querySelector(".prod-display-desc");
               const dispStyleInput = row.querySelector(".prod-display-style");
+              const imgSelect = row.querySelector(".prod-image-select");
+              const imgUpload = row.querySelector(".prod-image-upload");
+              const imgPreview = row.querySelector(".prod-image-preview");
+
+              // Populate image select
+              const currentImg =
+                spObj && spObj.image ? spObj.image : p.image || "";
+              availableImages.forEach((imgUrl) => {
+                const opt = document.createElement("option");
+                opt.value = imgUrl;
+                opt.textContent = imgUrl.split("/").pop();
+                if (imgUrl === currentImg) opt.selected = true;
+                imgSelect.appendChild(opt);
+              });
+
+              if (currentImg && currentImg !== "") {
+                imgPreview.src = currentImg;
+                imgPreview.style.display = "block";
+              }
+
+              imgSelect.addEventListener("change", (e) => {
+                if (e.target.value) {
+                  imgPreview.src = e.target.value;
+                  imgPreview.style.display = "block";
+                } else {
+                  imgPreview.style.display = "none";
+                }
+                updateLocalProductData();
+              });
+
+              imgUpload.addEventListener("change", async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const textSpan =
+                  imgUpload.parentElement.querySelector(".upload-text");
+                const originalText = textSpan.textContent;
+
+                // Show simple loading state
+                textSpan.textContent = "Uploading...";
+                imgUpload.disabled = true;
+
+                const result = await API.uploadImage(file);
+
+                // Restore button
+                textSpan.textContent = originalText;
+                imgUpload.disabled = false;
+                imgUpload.value = ""; // clear file input
+
+                if (result && result.url) {
+                  availableImages.push(result.url);
+                  // Update all select dropdowns across the page
+                  document
+                    .querySelectorAll(".prod-image-select")
+                    .forEach((select) => {
+                      const opt = document.createElement("option");
+                      opt.value = result.url;
+                      opt.textContent = result.url.split("/").pop();
+                      select.appendChild(opt);
+                    });
+
+                  imgSelect.value = result.url;
+                  imgPreview.src = result.url;
+                  imgPreview.style.display = "block";
+                  updateLocalProductData();
+                } else {
+                  alert("Image upload failed");
+                }
+              });
 
               expandBtn.addEventListener("click", () => {
                 const isExpanded = taxConfig.style.display === "block";
@@ -888,6 +1008,7 @@
                   const displayStyle = row.querySelector(
                     ".prod-display-style",
                   ).value;
+                  const image = row.querySelector(".prod-image-select").value;
                   const cats = Array.from(
                     catChipsContainer.querySelectorAll(".cat-cb:checked"),
                   ).map((cb) => cb.value);
@@ -899,6 +1020,7 @@
                     displayName,
                     displayDescription,
                     displayStyle,
+                    image,
                     categories: cats,
                     tags: tags,
                   };
@@ -1398,6 +1520,7 @@
               const displayStyle = pRow.querySelector(
                 ".prod-display-style",
               ).value;
+              const image = pRow.querySelector(".prod-image-select").value;
               const categories = Array.from(
                 pRow.querySelectorAll(".cat-cb:checked"),
               ).map((cb) => cb.value);
@@ -1409,6 +1532,7 @@
                 displayName,
                 displayDescription,
                 displayStyle,
+                image,
                 categories,
                 tags,
               };

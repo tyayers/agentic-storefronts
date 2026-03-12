@@ -27,6 +27,7 @@ type Product struct {
 	AuthType           string `json:"authType,omitempty"`
 	Style              string `json:"style,omitempty"`
 	DisplayStyle       string `json:"displayStyle,omitempty"`
+	Image              string `json:"image,omitempty"`
 }
 
 type SelectedProduct struct {
@@ -34,6 +35,7 @@ type SelectedProduct struct {
 	DisplayName        string   `json:"displayName,omitempty"`
 	DisplayDescription string   `json:"displayDescription,omitempty"`
 	DisplayStyle       string   `json:"displayStyle,omitempty"`
+	Image              string   `json:"image,omitempty"`
 	Categories         []string `json:"categories"`
 	Tags               []string `json:"tags"`
 }
