@@ -532,10 +532,12 @@ func getVertexProducts(ctx context.Context, projectId, region string) ([]Product
 			displayName = shortId
 		}
 		products = append(products, Product{
-			Id:          m.Name,
-			Name:        displayName,
-			Description: m.Description,
-			Type:        "vertex",
+			Id:                 m.Name,
+			Name:               displayName,
+			DisplayName:        displayName,
+			Description:        m.Description,
+			DisplayDescription: m.Description,
+			Type:               "vertex",
 		})
 	}
 	if products == nil {
@@ -666,11 +668,14 @@ func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product
 				}
 
 				versionProduct := Product{
-					Id:          vName, // Use version name as the unique ID
-					Name:        productName,
-					Description: productDesc,
-					Type:        "apigee",
-					Style:       apiStyle,
+					Id:                 vName, // Use version name as the unique ID
+					Name:               productName,
+					DisplayName:        productName,
+					Description:        productDesc,
+					DisplayDescription: productDesc,
+					Type:               "apigee",
+					Style:              apiStyle,
+					DisplayStyle:       apiStyle,
 				}
 
 				// Get specs for this version
@@ -721,11 +726,14 @@ func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product
 		} else {
 			// If we couldn't get versions, fallback to creating a product for the API itself
 			apiData := Product{
-				Id:          api.Name,
-				Name:        apiDisplayName,
-				Description: api.Description,
-				Type:        "apigee",
-				Style:       apiStyle,
+				Id:                 api.Name,
+				Name:               apiDisplayName,
+				DisplayName:        apiDisplayName,
+				Description:        api.Description,
+				DisplayDescription: api.Description,
+				Type:               "apigee",
+				Style:              apiStyle,
+				DisplayStyle:       apiStyle,
 			}
 			results = append(results, apiData)
 		}
@@ -1000,12 +1008,21 @@ func storefrontProductsHandler(w http.ResponseWriter, r *http.Request) {
 			if source.Autodetect {
 				allProducts = append(allProducts, products...)
 			} else {
-				selectedMap := make(map[string]bool)
+				selectedMap := make(map[string]SelectedProduct)
 				for _, sp := range source.SelectedProducts {
-					selectedMap[sp.Id] = true
+					selectedMap[sp.Id] = sp
 				}
 				for _, p := range products {
-					if selectedMap[p.Id] {
+					if sp, ok := selectedMap[p.Id]; ok {
+						if sp.DisplayName != "" {
+							p.DisplayName = sp.DisplayName
+						}
+						if sp.DisplayDescription != "" {
+							p.DisplayDescription = sp.DisplayDescription
+						}
+						if sp.DisplayStyle != "" {
+							p.DisplayStyle = sp.DisplayStyle
+						}
 						allProducts = append(allProducts, p)
 					}
 				}

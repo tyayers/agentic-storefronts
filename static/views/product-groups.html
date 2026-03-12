@@ -715,7 +715,7 @@
                         </button>
                     </div>
 
-                    <div class="product-list" style="max-height: 250px; overflow-y: auto;">
+                    <div class="product-list" style="max-height: 500px; overflow-y: auto;">
                         <!-- Products injected here -->
                     </div>
                 </div>
@@ -777,7 +777,19 @@
                             <span class="slider" style="border-radius: 18px;"></span>
                         </label>
                   </div>
-                  <div class="product-tax-config" style="display: ${isProdChecked ? "block" : "none"}; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
+                  <div class="product-tag-config" style="display: ${isProdChecked ? "block" : "none"}; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
+                      <div class="product-header" style="margin-bottom: 0.5rem;">
+                          <label style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 2px;">Display Name</label>
+                          <input type="text" class="prod-display-name" value="${spObj && spObj.displayName ? spObj.displayName : p.displayName || p.name || ""}" style="width: 100%; padding: 4px 8px; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-body); color: var(--text-primary);">
+                      </div>
+                      <div style="margin-bottom: 0.5rem;">
+                          <label style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 2px;">Display Description</label>
+                          <input type="text" class="prod-display-desc" value="${spObj && spObj.displayDescription ? spObj.displayDescription : p.displayDescription || p.description || ""}" style="width: 100%; padding: 4px 8px; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-body); color: var(--text-primary);">
+                      </div>
+                      <div style="margin-bottom: 0.5rem;">
+                          <label style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 2px;">Display Style</label>
+                          <input type="text" class="prod-display-style" value="${spObj && spObj.displayStyle ? spObj.displayStyle : p.displayStyle || p.style || ""}" style="width: 100%; padding: 4px 8px; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-body); color: var(--text-primary);">
+                      </div>
                       <div style="margin-bottom: 0.5rem;">
                           <label style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 2px;">Categories</label>
                           <div class="prod-cat-chips" style="display: flex; flex-wrap: wrap; gap: 4px;"></div>
@@ -790,9 +802,12 @@
               `;
 
               const toggle = row.querySelector(".product-toggle");
-              const taxConfig = row.querySelector(".product-tax-config");
+              const taxConfig = row.querySelector(".product-tag-config");
               const catChipsContainer = row.querySelector(".prod-cat-chips");
               const tagChipsContainer = row.querySelector(".prod-tag-chips");
+              const dispNameInput = row.querySelector(".prod-display-name");
+              const dispDescInput = row.querySelector(".prod-display-desc");
+              const dispStyleInput = row.querySelector(".prod-display-style");
 
               function renderChips() {
                 const pgTaxId = document.getElementById("pg-taxonomy").value;
@@ -801,12 +816,17 @@
                 catChipsContainer.innerHTML = "";
                 tagChipsContainer.innerHTML = "";
 
+                // Hide only the taxonomy chip sections if no taxonomy is selected, keep display settings visible
+                catChipsContainer.parentElement.style.display = currentTax
+                  ? "block"
+                  : "none";
+                tagChipsContainer.parentElement.style.display = currentTax
+                  ? "block"
+                  : "none";
+
                 if (!currentTax) {
-                  taxConfig.style.display = "none";
                   return;
                 }
-
-                if (toggle.checked) taxConfig.style.display = "block";
 
                 (currentTax.categories || []).forEach((cat) => {
                   const chip = document.createElement("label");
@@ -846,13 +866,27 @@
                   typeof sp === "object" ? sp.id === p.id : sp === p.id,
                 );
                 if (toggle.checked) {
+                  const displayName =
+                    row.querySelector(".prod-display-name").value;
+                  const displayDescription =
+                    row.querySelector(".prod-display-desc").value;
+                  const displayStyle = row.querySelector(
+                    ".prod-display-style",
+                  ).value;
                   const cats = Array.from(
                     catChipsContainer.querySelectorAll(".cat-cb:checked"),
                   ).map((cb) => cb.value);
                   const tags = Array.from(
                     tagChipsContainer.querySelectorAll(".tag-cb:checked"),
                   ).map((cb) => cb.value);
-                  const newData = { id: p.id, categories: cats, tags: tags };
+                  const newData = {
+                    id: p.id,
+                    displayName,
+                    displayDescription,
+                    displayStyle,
+                    categories: cats,
+                    tags: tags,
+                  };
                   if (idx > -1) {
                     selectedProducts[idx] = newData;
                   } else {
@@ -865,13 +899,13 @@
               }
 
               toggle.addEventListener("change", (e) => {
-                taxConfig.style.display =
-                  e.target.checked &&
-                  document.getElementById("pg-taxonomy").value
-                    ? "block"
-                    : "none";
+                taxConfig.style.display = e.target.checked ? "block" : "none";
                 updateLocalProductData();
               });
+
+              dispNameInput.addEventListener("input", updateLocalProductData);
+              dispDescInput.addEventListener("input", updateLocalProductData);
+              dispStyleInput.addEventListener("input", updateLocalProductData);
 
               // Re-render chips if taxonomy changes globally
               document
@@ -1343,13 +1377,27 @@
               ),
             ).map((pRow) => {
               const pId = pRow.querySelector(".product-toggle").value;
+              const displayName =
+                pRow.querySelector(".prod-display-name").value;
+              const displayDescription =
+                pRow.querySelector(".prod-display-desc").value;
+              const displayStyle = pRow.querySelector(
+                ".prod-display-style",
+              ).value;
               const categories = Array.from(
                 pRow.querySelectorAll(".cat-cb:checked"),
               ).map((cb) => cb.value);
               const tags = Array.from(
                 pRow.querySelectorAll(".tag-cb:checked"),
               ).map((cb) => cb.value);
-              return { id: pId, categories, tags };
+              return {
+                id: pId,
+                displayName,
+                displayDescription,
+                displayStyle,
+                categories,
+                tags,
+              };
             });
             sourceData.selectedProducts = checkedProds;
           } else {
