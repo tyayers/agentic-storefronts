@@ -702,6 +702,12 @@ func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product
 		Data:      results,
 		Timestamp: time.Now(),
 	}
+
+	if err := os.MkdirAll("./data/products", 0755); err == nil {
+		if fileData, err := json.MarshalIndent(apigeeCache, "", "  "); err == nil {
+			os.WriteFile("./data/products/apigee_cache.json", fileData, 0644)
+		}
+	}
 	apigeeCacheMutex.Unlock()
 
 	return results, nil
@@ -975,6 +981,18 @@ func storefrontProductsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	if fileData, err := os.ReadFile("./data/products/apigee_cache.json"); err == nil {
+		var cache map[string]apigeeCacheEntry
+		if err := json.Unmarshal(fileData, &cache); err == nil {
+			apigeeCacheMutex.Lock()
+			apigeeCache = cache
+			apigeeCacheMutex.Unlock()
+			log.Println("Loaded Apigee product cache from local file")
+		} else {
+			log.Printf("Failed to unmarshal apigee cache: %v", err)
+		}
+	}
+
 	// Pre-cache Apigee products on startup if project and region are provided
 	projectId := os.Getenv("PROJECT_ID")
 	region := os.Getenv("REGION")
