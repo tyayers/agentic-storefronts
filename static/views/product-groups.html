@@ -771,13 +771,18 @@
 
               row.innerHTML = `
                   <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>${p.name}</span>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <button type="button" class="btn-expand-product" style="background: none; border: none; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; padding: 0;">
+                                <span class="material-icons-round expand-icon" style="font-size: 1.2rem;">keyboard_arrow_down</span>
+                            </button>
+                            <span>${p.name}</span>
+                        </div>
                         <label class="switch" style="width: 34px; height: 18px;">
                             <input type="checkbox" class="product-toggle" value="${p.id}" ${isProdChecked ? "checked" : ""}>
                             <span class="slider" style="border-radius: 18px;"></span>
                         </label>
                   </div>
-                  <div class="product-tag-config" style="display: ${isProdChecked ? "block" : "none"}; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
+                  <div class="product-tag-config" style="display: none; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
                       <div class="product-header" style="margin-bottom: 0.5rem;">
                           <label style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 2px;">Display Name</label>
                           <input type="text" class="prod-display-name" value="${spObj && spObj.displayName ? spObj.displayName : p.displayName || p.name || ""}" style="width: 100%; padding: 4px 8px; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-body); color: var(--text-primary);">
@@ -803,11 +808,21 @@
 
               const toggle = row.querySelector(".product-toggle");
               const taxConfig = row.querySelector(".product-tag-config");
+              const expandBtn = row.querySelector(".btn-expand-product");
+              const expandIcon = row.querySelector(".expand-icon");
               const catChipsContainer = row.querySelector(".prod-cat-chips");
               const tagChipsContainer = row.querySelector(".prod-tag-chips");
               const dispNameInput = row.querySelector(".prod-display-name");
               const dispDescInput = row.querySelector(".prod-display-desc");
               const dispStyleInput = row.querySelector(".prod-display-style");
+
+              expandBtn.addEventListener("click", () => {
+                const isExpanded = taxConfig.style.display === "block";
+                taxConfig.style.display = isExpanded ? "none" : "block";
+                expandIcon.textContent = isExpanded
+                  ? "keyboard_arrow_down"
+                  : "keyboard_arrow_up";
+              });
 
               function renderChips() {
                 const pgTaxId = document.getElementById("pg-taxonomy").value;
@@ -899,7 +914,6 @@
               }
 
               toggle.addEventListener("change", (e) => {
-                taxConfig.style.display = e.target.checked ? "block" : "none";
                 updateLocalProductData();
               });
 
