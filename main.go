@@ -951,7 +951,7 @@ func storefrontProductsHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			if source.EnableAll {
+			if source.Autodetect {
 				allProducts = append(allProducts, products...)
 			} else {
 				selectedMap := make(map[string]bool)

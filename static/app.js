@@ -37,19 +37,19 @@ document.addEventListener("DOMContentLoaded", () => {
     //   icon: "dashboard",
     //   file: "views/dashboard.html",
     // },
-    {
-      id: "analytics",
-      label: "Analytics",
-      icon: "analytics",
-      file: "views/analytics.html",
-    },
+    // {
+    //   id: "analytics",
+    //   label: "Analytics",
+    //   icon: "analytics",
+    //   file: "views/analytics.html",
+    // },
     // {
     //   id: "projects",
     //   label: "Projects",
     //   icon: "folder",
     //   file: "views/projects.html",
     // },
-    { id: "team", label: "Team", icon: "group", file: "views/team.html" },
+    // { id: "team", label: "Team", icon: "group", file: "views/team.html" },
     {
       id: "settings",
       label: "Settings",

@@ -623,7 +623,7 @@
         "background: var(--bg-body); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color); position: relative;";
 
       const type = data.type || "vertex";
-      const enableAll = data.enableAll !== undefined ? data.enableAll : true;
+      const autodetect = data.autodetect !== undefined ? data.autodetect : true;
       const selectedProducts = data.selectedProducts || []; // Structs with id, categories, tags
       const manualProducts = data.manualProducts || []; // For Manual
 
@@ -673,7 +673,7 @@
         if (currentType === "vertex" || currentType === "apigee") {
           const modeDiv = document.createElement("div");
 
-          let isChecked = data.type === currentType ? enableAll : true;
+          let isChecked = data.type === currentType ? autodetect : true;
 
           modeDiv.innerHTML = `
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
@@ -695,9 +695,9 @@
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <span style="font-size: 0.9rem; font-weight: 500;">Enable All Products</span>
+                    <span style="font-size: 0.9rem; font-weight: 500;">Autodetect Products 🪄</span>
                     <label class="switch">
-                        <input type="checkbox" class="enable-all-switch" ${isChecked ? "checked" : ""}>
+                        <input type="checkbox" class="autodetect-switch" ${isChecked ? "checked" : ""}>
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -721,7 +721,7 @@
                 </div>
              `;
 
-          const switchEl = modeDiv.querySelector(".enable-all-switch");
+          const switchEl = modeDiv.querySelector(".autodetect-switch");
           const selectionArea = modeDiv.querySelector(
             ".product-selection-area",
           );
@@ -887,7 +887,7 @@
           switchEl.addEventListener("change", (e) => {
             selectionArea.style.display = e.target.checked ? "none" : "block";
             isChecked = e.target.checked;
-            data.enableAll = isChecked;
+            data.autodetect = isChecked;
             if (!isChecked && localProducts.length === 0) {
               fetchAndRenderProducts();
             }
@@ -1334,9 +1334,9 @@
         };
 
         if (type === "vertex" || type === "apigee") {
-          const enableAll = row.querySelector(".enable-all-switch").checked;
-          sourceData.enableAll = enableAll;
-          if (!enableAll) {
+          const autodetect = row.querySelector(".autodetect-switch").checked;
+          sourceData.autodetect = autodetect;
+          if (!autodetect) {
             const checkedProds = Array.from(
               row.querySelectorAll(
                 ".product-selection-row:has(.product-toggle:checked)",
