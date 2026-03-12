@@ -613,6 +613,13 @@ func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product
 			Name        string `json:"name"`
 			DisplayName string `json:"displayName"`
 			Description string `json:"description"`
+			ApiStyle    struct {
+				EnumValues struct {
+					Values []struct {
+						DisplayName string `json:"displayName"`
+					} `json:"values"`
+				} `json:"enumValues"`
+			} `json:"apiStyle"`
 		} `json:"apis"`
 	}
 	if err := getGcpJson(client, apisUrl, &apisResp); err != nil {
@@ -622,75 +629,106 @@ func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product
 	var results []Product
 
 	for _, api := range apisResp.Apis {
-		apiData := Product{
-			Id:          api.Name,
-			Name:        api.DisplayName,
-			Description: api.Description,
-			Type:        "apigee",
-		}
-		if apiData.Name == "" {
+		apiDisplayName := api.DisplayName
+		if apiDisplayName == "" {
 			parts := strings.Split(api.Name, "/")
-			apiData.Name = parts[len(parts)-1]
+			apiDisplayName = parts[len(parts)-1]
+		}
+
+		apiStyle := ""
+		if len(api.ApiStyle.EnumValues.Values) > 0 {
+			apiStyle = api.ApiStyle.EnumValues.Values[0].DisplayName
 		}
 
 		versionsUrl := fmt.Sprintf("https://apihub.googleapis.com/v1/%s/versions", api.Name)
 		var versionsResp struct {
-			ApiVersions []map[string]interface{} `json:"apiVersions"`
+			ApiVersions []map[string]interface{} `json:"versions"`
 		}
 		if err := getGcpJson(client, versionsUrl, &versionsResp); err == nil {
 			for _, vRaw := range versionsResp.ApiVersions {
-				if apiData.Description == "" {
-					if d, ok := vRaw["description"].(string); ok && d != "" {
-						apiData.Description = d
+				vName, _ := vRaw["name"].(string)
+				vDisplayName, _ := vRaw["displayName"].(string)
+				if vDisplayName == "" {
+					parts := strings.Split(vName, "/")
+					vDisplayName = parts[len(parts)-1]
+				}
+
+				// Combine names and descriptions
+				productName := fmt.Sprintf("%s (%s)", apiDisplayName, vDisplayName)
+				productDesc := api.Description
+				vDesc, _ := vRaw["description"].(string)
+				if vDesc != "" {
+					if productDesc != "" {
+						productDesc += "\n\n" + vDesc
+					} else {
+						productDesc = vDesc
 					}
 				}
-				vName, _ := vRaw["name"].(string)
+
+				versionProduct := Product{
+					Id:          vName, // Use version name as the unique ID
+					Name:        productName,
+					Description: productDesc,
+					Type:        "apigee",
+					Style:       apiStyle,
+				}
+
+				// Get specs for this version
 				specsUrl := fmt.Sprintf("https://apihub.googleapis.com/v1/%s/specs", vName)
 				var specsResp struct {
 					Specs []map[string]interface{} `json:"specs"`
 				}
 				if err := getGcpJson(client, specsUrl, &specsResp); err == nil {
+					// Just grab the first spec contents for now
 					for _, sRaw := range specsResp.Specs {
 						sName, _ := sRaw["name"].(string)
 						contentsUrl := fmt.Sprintf("https://apihub.googleapis.com/v1/%s:contents", sName)
 						var contentsResp map[string]interface{}
 						if err := getGcpJson(client, contentsUrl, &contentsResp); err == nil {
 							if contents, ok := contentsResp["contents"].(string); ok {
-								if apiData.SpecContents == "" {
-									apiData.SpecContents = contents
-								}
+								versionProduct.SpecContents = contents
+								break // Got a spec, stop looking for more specs for this version
 							}
 						}
 					}
 				}
-			}
-		}
 
-		for _, d := range depsResp.Deployments {
-			apiVersions, _ := d["apiVersions"].([]interface{})
-			for _, av := range apiVersions {
-				avStr, _ := av.(string)
-				if strings.HasPrefix(avStr, api.Name) {
-					if endpoints, ok := d["endpoints"].([]interface{}); ok && len(endpoints) > 0 {
-						if epMap, ok := endpoints[0].(map[string]interface{}); ok {
-							if uri, ok := epMap["uri"].(string); ok && uri != "" {
-								if apiData.Endpoint == "" {
-									apiData.Endpoint = uri
+				// Get deployment for this version
+				for _, d := range depsResp.Deployments {
+					apiVersions, _ := d["apiVersions"].([]interface{})
+					for _, av := range apiVersions {
+						avStr, _ := av.(string)
+						if avStr == vName { // Exact match for the version
+							if endpoints, ok := d["endpoints"].([]interface{}); ok && len(endpoints) > 0 {
+								if epMap, ok := endpoints[0].(map[string]interface{}); ok {
+									if uri, ok := epMap["uri"].(string); ok && uri != "" {
+										versionProduct.Endpoint = uri
+									}
 								}
 							}
+							if versionProduct.Endpoint == "" {
+								if uri, ok := d["deploymentUri"].(string); ok && uri != "" {
+									versionProduct.Endpoint = uri
+								}
+							}
+							break
 						}
 					}
-					if apiData.Endpoint == "" {
-						if uri, ok := d["deploymentUri"].(string); ok && uri != "" {
-							apiData.Endpoint = uri
-						}
-					}
-					break
 				}
-			}
-		}
 
-		results = append(results, apiData)
+				results = append(results, versionProduct)
+			}
+		} else {
+			// If we couldn't get versions, fallback to creating a product for the API itself
+			apiData := Product{
+				Id:          api.Name,
+				Name:        apiDisplayName,
+				Description: api.Description,
+				Type:        "apigee",
+				Style:       apiStyle,
+			}
+			results = append(results, apiData)
+		}
 	}
 
 	if results == nil {
@@ -698,14 +736,16 @@ func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product
 	}
 
 	apigeeCacheMutex.Lock()
-	apigeeCache[cacheKey] = apigeeCacheEntry{
+	entryToCache := apigeeCacheEntry{
 		Data:      results,
 		Timestamp: time.Now(),
 	}
+	apigeeCache[cacheKey] = entryToCache
 
 	if err := os.MkdirAll("./data/products", 0755); err == nil {
-		if fileData, err := json.MarshalIndent(apigeeCache, "", "  "); err == nil {
-			os.WriteFile("./data/products/apigee_cache.json", fileData, 0644)
+		if fileData, err := json.MarshalIndent(entryToCache, "", "  "); err == nil {
+			fileName := fmt.Sprintf("./data/products/apigee_%s_%s.json", projectId, region)
+			os.WriteFile(fileName, fileData, 0644)
 		}
 	}
 	apigeeCacheMutex.Unlock()
@@ -981,15 +1021,35 @@ func storefrontProductsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	if fileData, err := os.ReadFile("./data/products/apigee_cache.json"); err == nil {
-		var cache map[string]apigeeCacheEntry
-		if err := json.Unmarshal(fileData, &cache); err == nil {
-			apigeeCacheMutex.Lock()
-			apigeeCache = cache
-			apigeeCacheMutex.Unlock()
-			log.Println("Loaded Apigee product cache from local file")
-		} else {
-			log.Printf("Failed to unmarshal apigee cache: %v", err)
+	if files, err := os.ReadDir("./data/products"); err == nil {
+		apigeeCacheMutex.Lock()
+		loadedCount := 0
+		for _, file := range files {
+			if !file.IsDir() && strings.HasPrefix(file.Name(), "apigee_") && strings.HasSuffix(file.Name(), ".json") {
+				// Parse projectId and region from filename: apigee_{projectId}_{region}.json
+				nameParts := strings.Split(strings.TrimSuffix(strings.TrimPrefix(file.Name(), "apigee_"), ".json"), "_")
+				if len(nameParts) >= 2 {
+					// Handle cases where projectId might contain underscores by taking the last part as region
+					regionStr := nameParts[len(nameParts)-1]
+					projectIdStr := strings.Join(nameParts[:len(nameParts)-1], "_")
+					cacheKey := fmt.Sprintf("%s:%s", projectIdStr, regionStr)
+
+					fileData, err := os.ReadFile(filepath.Join("./data/products", file.Name()))
+					if err == nil {
+						var entry apigeeCacheEntry
+						if err := json.Unmarshal(fileData, &entry); err == nil {
+							apigeeCache[cacheKey] = entry
+							loadedCount++
+						} else {
+							log.Printf("Failed to unmarshal apigee cache file %s: %v", file.Name(), err)
+						}
+					}
+				}
+			}
+		}
+		apigeeCacheMutex.Unlock()
+		if loadedCount > 0 {
+			log.Printf("Loaded %d Apigee product cache entries from local files", loadedCount)
 		}
 	}
 

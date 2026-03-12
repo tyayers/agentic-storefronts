@@ -23,6 +23,7 @@ type Product struct {
 	SpecContents string `json:"specContents,omitempty"`
 	Type         string `json:"type,omitempty"`
 	AuthType     string `json:"authType,omitempty"`
+	Style        string `json:"style,omitempty"`
 }
 
 type SelectedProduct struct {

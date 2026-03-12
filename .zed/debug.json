@@ -9,5 +9,6 @@
     "program": ".",
     "request": "launch",
     "mode": "debug",
+    "envFile": ".env",
   },
 ]
