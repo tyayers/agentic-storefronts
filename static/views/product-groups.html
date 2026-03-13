@@ -660,7 +660,7 @@
       div.style.cssText =
         "background: var(--bg-body); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color); position: relative;";
 
-      const type = data.type || "vertex";
+      const type = data.type || "apigee";
       const autodetect = data.autodetect !== undefined ? data.autodetect : true;
       const selectedProducts = data.selectedProducts || []; // Structs with id, categories, tags
       const manualProducts = data.manualProducts || []; // For Manual
@@ -689,8 +689,8 @@
                 <div style="margin-bottom: 1rem;">
                     <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Type</label>
                     <select class="source-type" style="width: 100%; max-width: 300px; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
-                        <option value="vertex" ${type === "vertex" ? "selected" : ""}>Vertex Products</option>
                         <option value="apigee" ${type === "apigee" ? "selected" : ""}>Apigee Products</option>
+                        <option value="vertex" ${type === "vertex" ? "selected" : ""}>Vertex Products</option>
                         <option value="manual" ${type === "manual" ? "selected" : ""}>Manual</option>
                     </select>
                 </div>

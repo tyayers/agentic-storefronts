@@ -24,6 +24,7 @@ const dataDir = "./data/storefronts"
 const taxonomiesDir = "./data/taxonomies"
 const productGroupsDir = "./data/product-groups"
 const audiencesDir = "./data/audiences"
+const themesDir = "./data/themes"
 const imagesDir = "./data/images"
 const sessionsDir = "./data/sessions"
 
@@ -376,6 +377,103 @@ func productGroupsHandler(w http.ResponseWriter, r *http.Request) {
 				jsonResponse(w, http.StatusNotFound, map[string]string{"error": "Product group not found"})
 			} else {
 				jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to delete product group"})
+			}
+			return
+		}
+
+		jsonResponse(w, http.StatusOK, map[string]string{"status": "deleted"})
+
+	default:
+		w.Header().Set("Allow", "GET, POST, PUT, DELETE")
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+	}
+}
+
+// ThemesHandler manages CRUD for themes
+func themesHandler(w http.ResponseWriter, r *http.Request) {
+	if err := os.MkdirAll(themesDir, 0755); err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to access data directory"})
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		files, err := os.ReadDir(themesDir)
+		if err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to read themes"})
+			return
+		}
+
+		var themes []json.RawMessage
+		for _, file := range files {
+			if !file.IsDir() && strings.HasSuffix(file.Name(), ".json") {
+				data, err := os.ReadFile(filepath.Join(themesDir, file.Name()))
+				if err == nil {
+					themes = append(themes, data)
+				}
+			}
+		}
+
+		if themes == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("[]"))
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("["))
+		for i, t := range themes {
+			if i > 0 {
+				w.Write([]byte(","))
+			}
+			w.Write(t)
+		}
+		w.Write([]byte("]"))
+
+	case http.MethodPost, http.MethodPut:
+		var theme map[string]interface{}
+		if err := json.NewDecoder(r.Body).Decode(&theme); err != nil {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Invalid JSON"})
+			return
+		}
+
+		id, ok := theme["id"].(string)
+		if !ok || id == "" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Missing or invalid 'id'"})
+			return
+		}
+
+		id = filepath.Base(filepath.Clean(id))
+		filePath := filepath.Join(themesDir, id+".json")
+
+		data, err := json.MarshalIndent(theme, "", "  ")
+		if err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to process data"})
+			return
+		}
+
+		if err := os.WriteFile(filePath, data, 0644); err != nil {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to save theme"})
+			return
+		}
+
+		jsonResponse(w, http.StatusOK, theme)
+
+	case http.MethodDelete:
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Missing 'id' parameter"})
+			return
+		}
+
+		id = filepath.Base(filepath.Clean(id))
+		filePath := filepath.Join(themesDir, id+".json")
+
+		if err := os.Remove(filePath); err != nil {
+			if os.IsNotExist(err) {
+				jsonResponse(w, http.StatusNotFound, map[string]string{"error": "Theme not found"})
+			} else {
+				jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to delete theme"})
 			}
 			return
 		}
@@ -1210,6 +1308,7 @@ func main() {
 	mux.HandleFunc("/api/storefronts", authenticate(storefrontsHandler))
 	mux.HandleFunc("/api/taxonomies", authenticate(taxonomiesHandler))
 	mux.HandleFunc("/api/product-groups", authenticate(productGroupsHandler))
+	mux.HandleFunc("/api/themes", authenticate(themesHandler))
 	mux.HandleFunc("/api/audiences", authenticate(audiencesHandler))
 	mux.HandleFunc("/api/images", authenticate(imagesHandler))
 	mux.HandleFunc("/api/storefronts/{name}/products", storefrontProductsHandler)

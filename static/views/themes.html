@@ -1,0 +1,837 @@
+<style>
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .fade-in-row {
+    animation: fadeIn 0.4s ease-out forwards;
+  }
+
+  .image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .image-card {
+    position: relative;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--bg-card);
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .image-card img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  .btn-remove-image {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .image-card:hover .btn-remove-image {
+    opacity: 1;
+  }
+</style>
+
+<div id="theme-view-container">
+  <!-- List View -->
+  <div id="theme-list-view">
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+      "
+    >
+      <div style="display: flex; gap: 1rem; align-items: center; flex: 1">
+        <h3 style="white-space: nowrap">Themes</h3>
+        <input
+          type="text"
+          id="theme-search"
+          class="search-input"
+          placeholder="Search themes..."
+        />
+      </div>
+
+      <button
+        id="btn-add-theme"
+        style="
+          background: var(--accent-color);
+          color: white;
+          border: none;
+          padding: 0.5rem 1rem;
+          border-radius: 0.5rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          white-space: nowrap;
+        "
+      >
+        <span class="material-icons-round" style="font-size: 1.2rem">add</span>
+        Create Theme
+      </button>
+    </div>
+
+    <div class="data-table-container">
+      <table class="data-table" id="theme-table">
+        <thead>
+          <tr>
+            <th data-sort="name">
+              Name
+              <span class="material-icons-round sort-icon">unfold_more</span>
+            </th>
+            <th data-sort="id">
+              Id
+              <span class="material-icons-round sort-icon">unfold_more</span>
+            </th>
+            <th>Repository</th>
+            <th>Images</th>
+            <th style="text-align: right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="theme-table-body">
+          <!-- Rows injected here -->
+        </tbody>
+      </table>
+    </div>
+
+    <div
+      id="empty-state-themes"
+      style="
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-secondary);
+        display: none;
+      "
+    >
+      <span
+        class="material-icons-round"
+        style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5"
+        >palette</span
+      >
+      <p>No themes found. Create one to get started.</p>
+    </div>
+  </div>
+
+  <!-- Editor View (Hidden by default) -->
+  <div
+    id="theme-editor-view"
+    style="display: none; min-height: 100%; padding-bottom: 2rem"
+  >
+    <div
+      class="card"
+      style="max-width: 800px; margin: 0 auto; position: relative"
+    >
+      <button
+        id="btn-close-theme-editor"
+        style="
+          position: absolute;
+          top: 1rem;
+          right: 1rem;
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: var(--text-secondary);
+        "
+      >
+        <span class="material-icons-round">close</span>
+      </button>
+      <h3 id="theme-editor-title" style="margin-bottom: 1.5rem">
+        Create Theme
+      </h3>
+
+      <form id="theme-form">
+        <input type="hidden" id="theme-edit-id" />
+
+        <div style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem">
+          <div style="flex: 1">
+            <label
+              style="
+                display: block;
+                margin-bottom: 0.5rem;
+                font-weight: 500;
+                font-size: 0.9rem;
+              "
+              >Theme Id</label
+            >
+            <input
+              type="text"
+              id="theme-id-display"
+              readonly
+              placeholder="Generated automatically..."
+              style="
+                width: 100%;
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                border: 1px solid var(--border-color);
+                background: var(--bg-card);
+                color: var(--text-secondary);
+                font-family: monospace;
+              "
+            />
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem">
+          <label
+            style="
+              display: block;
+              margin-bottom: 0.5rem;
+              font-weight: 500;
+              font-size: 0.9rem;
+            "
+            >Theme Name</label
+          >
+          <input
+            type="text"
+            id="theme-name"
+            required
+            placeholder="e.g. Dark Elegance"
+            style="
+              width: 100%;
+              padding: 0.75rem;
+              border-radius: 0.5rem;
+              border: 1px solid var(--border-color);
+              background: var(--bg-body);
+              color: var(--text-primary);
+            "
+          />
+        </div>
+
+        <div style="margin-bottom: 1.5rem">
+          <label
+            style="
+              display: block;
+              margin-bottom: 0.5rem;
+              font-weight: 500;
+              font-size: 0.9rem;
+            "
+            >Github Repository URL</label
+          >
+          <input
+            type="url"
+            id="theme-repo"
+            placeholder="e.g. https://github.com/user/theme-repo"
+            style="
+              width: 100%;
+              padding: 0.75rem;
+              border-radius: 0.5rem;
+              border: 1px solid var(--border-color);
+              background: var(--bg-body);
+              color: var(--text-primary);
+            "
+          />
+        </div>
+
+        <!-- Images Section -->
+        <div
+          style="
+            margin-bottom: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+          "
+        >
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 1rem;
+            "
+          >
+            <h4 style="margin: 0; font-size: 1rem">Preview Images</h4>
+
+            <div style="display: flex; gap: 0.5rem; align-items: center">
+              <select
+                id="theme-image-select"
+                style="
+                  padding: 0.5rem;
+                  font-size: 0.8rem;
+                  border: 1px solid var(--border-color);
+                  border-radius: 4px;
+                  background: var(--bg-body);
+                  color: var(--text-primary);
+                "
+              >
+                <option value="">Select Existing Image...</option>
+              </select>
+              <button
+                type="button"
+                id="btn-add-existing-image"
+                style="
+                  padding: 0.5rem 1rem;
+                  font-size: 0.8rem;
+                  background: var(--bg-card);
+                  border: 1px solid var(--border-color);
+                  border-radius: 4px;
+                  color: var(--text-primary);
+                  cursor: pointer;
+                "
+              >
+                Add
+              </button>
+              <span style="color: var(--text-secondary); font-size: 0.8rem"
+                >or</span
+              >
+              <label
+                class="btn-upload-label"
+                style="
+                  cursor: pointer;
+                  padding: 0.5rem 1rem;
+                  font-size: 0.8rem;
+                  background: var(--nav-item-active-bg);
+                  border: none;
+                  border-radius: 4px;
+                  color: var(--nav-item-active-text);
+                  white-space: nowrap;
+                "
+              >
+                <span id="theme-upload-text">Upload New</span>
+                <input
+                  type="file"
+                  id="theme-image-upload"
+                  accept="image/*"
+                  style="display: none"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div id="theme-images-grid" class="image-grid">
+            <!-- Images injected here -->
+          </div>
+          <p
+            id="theme-no-images"
+            style="
+              font-size: 0.85rem;
+              color: var(--text-secondary);
+              text-align: center;
+              padding: 2rem 0;
+              margin: 0;
+            "
+          >
+            No images added yet.
+          </p>
+        </div>
+
+        <div
+          style="
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+          "
+        >
+          <button
+            type="button"
+            id="btn-cancel-theme"
+            style="
+              background: transparent;
+              border: 1px solid var(--border-color);
+              color: var(--text-primary);
+              padding: 0.5rem 1.5rem;
+              border-radius: 0.5rem;
+              cursor: pointer;
+            "
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            style="
+              background: var(--accent-color);
+              color: white;
+              border: none;
+              padding: 0.5rem 1.5rem;
+              border-radius: 0.5rem;
+              font-weight: 600;
+              cursor: pointer;
+            "
+          >
+            Save Theme
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  (async function () {
+    const API = {
+      async request(endpoint, options = {}) {
+        const userStr = localStorage.getItem("user_session");
+        let token = null;
+        if (userStr) {
+          token = localStorage.getItem("google_credential");
+        }
+
+        const headers = {
+          "Content-Type": "application/json",
+          ...options.headers,
+        };
+
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`/api${endpoint}`, {
+          ...options,
+          headers,
+        });
+
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.statusText}`);
+        }
+
+        if (response.status === 204) return null;
+        return response.json();
+      },
+
+      async getThemes() {
+        try {
+          const token = localStorage.getItem("google_credential");
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          return await this.request("/themes", { headers });
+        } catch (e) {
+          console.error(e);
+          return [];
+        }
+      },
+
+      async saveTheme(theme) {
+        return await this.request("/themes", {
+          method: "POST",
+          body: JSON.stringify(theme),
+        });
+      },
+
+      async deleteTheme(id) {
+        return await this.request(`/themes?id=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        });
+      },
+
+      async getImages() {
+        try {
+          const token = localStorage.getItem("google_credential");
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          return await this.request("/images", { headers });
+        } catch (e) {
+          console.error(e);
+          return [];
+        }
+      },
+
+      async uploadImage(file) {
+        try {
+          const token = localStorage.getItem("google_credential");
+          const formData = new FormData();
+          formData.append("image", file);
+
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+          const response = await fetch(`/api/images`, {
+            method: "POST",
+            body: formData,
+            headers,
+          });
+
+          if (!response.ok) {
+            throw new Error(`API Error: ${response.statusText}`);
+          }
+          return await response.json();
+        } catch (e) {
+          console.error(e);
+          return null;
+        }
+      },
+    };
+
+    // --- State ---
+    let themes = [];
+    let availableImages = [];
+    let currentThemeImages = [];
+    let state = {
+      filter: "",
+      sortKey: "name",
+      sortOrder: "asc",
+    };
+
+    // Load data from API
+    async function loadData() {
+      [themes, availableImages] = await Promise.all([
+        API.getThemes(),
+        API.getImages(),
+      ]);
+      populateImageSelect();
+      renderList();
+    }
+
+    // --- Elements ---
+    const listView = document.getElementById("theme-list-view");
+    const editorView = document.getElementById("theme-editor-view");
+    const tableBody = document.getElementById("theme-table-body");
+    const tableContainer = document.querySelector(
+      "#theme-list-view .data-table-container",
+    );
+    const emptyState = document.getElementById("empty-state-themes");
+    const form = document.getElementById("theme-form");
+    const editorTitle = document.getElementById("theme-editor-title");
+    const searchInput = document.getElementById("theme-search");
+    const headers = document.querySelectorAll("#theme-table th[data-sort]");
+
+    const themeIdDisplay = document.getElementById("theme-id-display");
+    const themeNameInput = document.getElementById("theme-name");
+    const themeRepoInput = document.getElementById("theme-repo");
+    const imagesGrid = document.getElementById("theme-images-grid");
+    const noImagesText = document.getElementById("theme-no-images");
+    const imageSelect = document.getElementById("theme-image-select");
+    const btnAddExistingImage = document.getElementById(
+      "btn-add-existing-image",
+    );
+    const imageUpload = document.getElementById("theme-image-upload");
+
+    // --- Helpers ---
+    function slugify(text) {
+      return text
+        .toString()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^\w\-]+/g, "")
+        .replace(/\-\-+/g, "-")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "");
+    }
+
+    function generateId(name) {
+      const slug = slugify(name || "theme");
+      const random = Math.random().toString(36).substring(2, 6);
+      return `${slug}-${random}`;
+    }
+
+    themeNameInput.addEventListener("input", (e) => {
+      if (!document.getElementById("theme-edit-id").value) {
+        themeIdDisplay.value = generateId(e.target.value);
+      }
+    });
+
+    function populateImageSelect() {
+      imageSelect.innerHTML =
+        '<option value="">Select Existing Image...</option>';
+      availableImages.forEach((imgUrl) => {
+        const opt = document.createElement("option");
+        opt.value = imgUrl;
+        opt.textContent = imgUrl.split("/").pop();
+        imageSelect.appendChild(opt);
+      });
+    }
+
+    function renderImagesGrid() {
+      imagesGrid.innerHTML = "";
+      if (currentThemeImages.length === 0) {
+        noImagesText.style.display = "block";
+      } else {
+        noImagesText.style.display = "none";
+        currentThemeImages.forEach((imgUrl, idx) => {
+          const card = document.createElement("div");
+          card.className = "image-card fade-in-row";
+          card.innerHTML = `
+                    <img src="${imgUrl}" alt="Preview" loading="lazy">
+                    <button type="button" class="btn-remove-image" title="Remove image">
+                        <span class="material-icons-round" style="font-size: 1rem;">close</span>
+                    </button>
+                `;
+          card
+            .querySelector(".btn-remove-image")
+            .addEventListener("click", () => {
+              currentThemeImages.splice(idx, 1);
+              renderImagesGrid();
+            });
+          imagesGrid.appendChild(card);
+        });
+      }
+    }
+
+    // Add existing image
+    btnAddExistingImage.addEventListener("click", () => {
+      const val = imageSelect.value;
+      if (val && !currentThemeImages.includes(val)) {
+        currentThemeImages.push(val);
+        renderImagesGrid();
+      }
+      imageSelect.value = "";
+    });
+
+    // Upload new image
+    imageUpload.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const uploadText = document.getElementById("theme-upload-text");
+      const originalText = uploadText.textContent;
+
+      uploadText.textContent = "Uploading...";
+      imageUpload.disabled = true;
+
+      const result = await API.uploadImage(file);
+
+      uploadText.textContent = originalText;
+      imageUpload.disabled = false;
+      imageUpload.value = ""; // clear
+
+      if (result && result.url) {
+        availableImages.push(result.url);
+        populateImageSelect();
+        if (!currentThemeImages.includes(result.url)) {
+          currentThemeImages.push(result.url);
+          renderImagesGrid();
+        }
+      } else {
+        alert("Image upload failed");
+      }
+    });
+
+    function createTableRow(theme) {
+      const tr = document.createElement("tr");
+      tr.style.cursor = "pointer";
+
+      const repoDisplay = theme.githubRepo
+        ? `<a href="${theme.githubRepo}" target="_blank" onclick="event.stopPropagation()" style="color: var(--accent-color); text-decoration: none;">${theme.githubRepo.split("/").slice(-2).join("/")}</a>`
+        : '<span style="color: var(--text-secondary)">—</span>';
+
+      const imageCount = theme.images ? theme.images.length : 0;
+
+      const previewImage =
+        imageCount > 0
+          ? `<div style="width: 32px; height: 32px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border-color); background: var(--bg-card); display: flex; align-items: center; justify-content: center;"><img src="${theme.images[0]}" style="max-width: 100%; max-height: 100%; object-fit: cover;"></div>`
+          : `<div style="width: 32px; height: 32px; border-radius: 4px; border: 1px dashed var(--border-color); background: var(--bg-card); display: flex; align-items: center; justify-content: center; color: var(--text-secondary);"><span class="material-icons-round" style="font-size: 1.2rem;">image</span></div>`;
+
+      tr.innerHTML = `
+          <td>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                ${previewImage}
+                <span style="font-weight: 500;">${theme.name}</span>
+            </div>
+          </td>
+          <td style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">${theme.id}</td>
+          <td>${repoDisplay}</td>
+          <td><span style="background: var(--bg-body); padding: 2px 8px; border-radius: 12px; font-size: 0.85rem; border: 1px solid var(--border-color);">${imageCount}</span></td>
+          <td>
+            <div class="action-btn-group">
+                <button class="icon-btn btn-edit" title="Edit">
+                    <span class="material-icons-round" style="font-size: 1.2rem;">edit</span>
+                </button>
+                <button class="icon-btn btn-delete" title="Delete" style="color: #ef4444;">
+                    <span class="material-icons-round" style="font-size: 1.2rem;">delete</span>
+                </button>
+            </div>
+          </td>
+      `;
+
+      tr.addEventListener("click", () => openEditor(theme));
+
+      tr.querySelector(".btn-edit").addEventListener("click", (e) => {
+        e.stopPropagation();
+        openEditor(theme);
+      });
+
+      tr.querySelector(".btn-delete").addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (confirm(`Are you sure you want to delete theme '${theme.name}'?`)) {
+          deleteTheme(theme.id);
+        }
+      });
+
+      return tr;
+    }
+
+    function renderList() {
+      tableBody.innerHTML = "";
+
+      let displayData = themes.filter((t) => {
+        const search = state.filter.toLowerCase();
+        return t.name.toLowerCase().includes(search);
+      });
+
+      displayData.sort((a, b) => {
+        let valA, valB;
+        switch (state.sortKey) {
+          case "name":
+            valA = a.name.toLowerCase();
+            valB = b.name.toLowerCase();
+            break;
+          case "id":
+            valA = a.id.toLowerCase();
+            valB = b.id.toLowerCase();
+            break;
+          default:
+            return 0;
+        }
+        if (valA < valB) return state.sortOrder === "asc" ? -1 : 1;
+        if (valA > valB) return state.sortOrder === "asc" ? 1 : -1;
+        return 0;
+      });
+
+      headers.forEach((th) => {
+        const icon = th.querySelector(".sort-icon");
+        th.classList.remove("sorted");
+        icon.textContent = "unfold_more";
+        if (th.dataset.sort === state.sortKey) {
+          th.classList.add("sorted");
+          icon.textContent =
+            state.sortOrder === "asc" ? "arrow_upward" : "arrow_downward";
+        }
+      });
+
+      if (displayData.length === 0) {
+        if (state.filter) {
+          tableContainer.style.display = "block";
+          tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No results found for "${state.filter}"</td></tr>`;
+          emptyState.style.display = "none";
+        } else {
+          tableContainer.style.display = "none";
+          emptyState.style.display = "block";
+        }
+      } else {
+        tableContainer.style.display = "block";
+        emptyState.style.display = "none";
+        displayData.forEach((t) => {
+          tableBody.appendChild(createTableRow(t));
+        });
+      }
+    }
+
+    function handleSort(key) {
+      if (state.sortKey === key) {
+        state.sortOrder = state.sortOrder === "asc" ? "desc" : "asc";
+      } else {
+        state.sortKey = key;
+        state.sortOrder = "asc";
+      }
+      renderList();
+    }
+
+    function openEditor(theme = null) {
+      listView.style.display = "none";
+      editorView.style.display = "block";
+
+      document.getElementById("theme-edit-id").value = "";
+      themeNameInput.value = "";
+      themeRepoInput.value = "";
+      themeIdDisplay.value = generateId("");
+      currentThemeImages = [];
+
+      if (theme) {
+        editorTitle.textContent = "Edit Theme";
+        document.getElementById("theme-edit-id").value = theme.id;
+        themeIdDisplay.value = theme.id;
+        themeNameInput.value = theme.name;
+        themeRepoInput.value = theme.githubRepo || "";
+        currentThemeImages = [...(theme.images || [])];
+      } else {
+        editorTitle.textContent = "Create Theme";
+      }
+
+      renderImagesGrid();
+    }
+
+    function closeEditor() {
+      editorView.style.display = "none";
+      listView.style.display = "block";
+    }
+
+    async function deleteTheme(id) {
+      try {
+        await API.deleteTheme(id);
+        await loadData();
+      } catch (e) {
+        console.error("Failed to delete", e);
+        alert("Failed to delete theme.");
+      }
+    }
+
+    document
+      .getElementById("btn-add-theme")
+      .addEventListener("click", () => openEditor());
+
+    document
+      .getElementById("btn-cancel-theme")
+      .addEventListener("click", closeEditor);
+    document
+      .getElementById("btn-close-theme-editor")
+      .addEventListener("click", closeEditor);
+
+    searchInput.addEventListener("input", (e) => {
+      state.filter = e.target.value;
+      renderList();
+    });
+
+    headers.forEach((th) => {
+      th.addEventListener("click", () => {
+        handleSort(th.dataset.sort);
+      });
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const id = document.getElementById("theme-edit-id").value;
+      const name = themeNameInput.value;
+      const githubRepo = themeRepoInput.value;
+
+      let savePayload = {
+        id: id || themeIdDisplay.value,
+        name,
+        githubRepo,
+        images: currentThemeImages,
+      };
+
+      try {
+        await API.saveTheme(savePayload);
+        await loadData();
+        closeEditor();
+      } catch (e) {
+        console.error("Failed to save", e);
+        alert("Failed to save theme");
+      }
+    });
+
+    loadData();
+  })();
+</script>

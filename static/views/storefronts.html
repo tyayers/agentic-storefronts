@@ -446,7 +446,7 @@
           </div>
         </div>
 
-        <!-- Frontend Template Section -->
+        <!-- Select Theme Section -->
         <div
           style="
             margin-bottom: 1.5rem;
@@ -454,43 +454,7 @@
             border-top: 1px solid var(--border-color);
           "
         >
-          <h4 style="margin-bottom: 1rem; font-size: 1rem">
-            Frontend Template
-          </h4>
-
-          <div style="margin-bottom: 1rem">
-            <label
-              style="
-                display: block;
-                margin-bottom: 0.5rem;
-                font-weight: 500;
-                font-size: 0.9rem;
-              "
-              >Custom GitHub Repository URL</label
-            >
-            <input
-              type="text"
-              id="sf-template-url"
-              placeholder="https://github.com/username/repo"
-              style="
-                width: 100%;
-                padding: 0.75rem;
-                border-radius: 0.5rem;
-                border: 1px solid var(--border-color);
-                background: var(--bg-body);
-                color: var(--text-primary);
-              "
-            />
-            <p
-              style="
-                font-size: 0.8rem;
-                color: var(--text-secondary);
-                margin-top: 0.25rem;
-              "
-            >
-              Leave empty to use a built-in template.
-            </p>
-          </div>
+          <h4 style="margin-bottom: 1rem; font-size: 1rem">Select Theme</h4>
 
           <div
             id="builtin-templates-container"
@@ -502,16 +466,6 @@
               transition: opacity 0.3s ease;
             "
           >
-            <label
-              style="
-                display: block;
-                margin-bottom: 0.5rem;
-                font-weight: 500;
-                font-size: 0.9rem;
-              "
-              >Built-in Templates</label
-            >
-
             <div
               style="
                 display: flex;
@@ -664,27 +618,6 @@
       { id: "p5", name: "Product E" },
     ];
 
-    const BUILTIN_TEMPLATES = [
-      {
-        id: "modern-shop",
-        name: "Modern Shop",
-        color: "#6366f1",
-        image: null,
-      },
-      {
-        id: "classic-boutique",
-        name: "Classic Boutique",
-        color: "#ec4899",
-        image: null,
-      },
-      {
-        id: "tech-hub",
-        name: "Tech Hub",
-        color: "#10b981",
-        image: null,
-      },
-    ];
-
     // --- API Service ---
     const API = {
       async request(endpoint, options = {}) {
@@ -755,6 +688,17 @@
         }
       },
 
+      async getThemes() {
+        try {
+          const token = localStorage.getItem("google_credential");
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          return await this.request("/themes", { headers });
+        } catch (e) {
+          console.error(e);
+          return [];
+        }
+      },
+
       async getStorefronts() {
         try {
           const token = localStorage.getItem("google_credential");
@@ -786,6 +730,7 @@
     let taxonomies = [];
     let productGroups = [];
     let audiences = [];
+    let themes = [];
     let state = {
       filter: "",
       sortKey: "name",
@@ -795,16 +740,18 @@
 
     // Load data from API
     async function loadData() {
-      const [sfData, taxData, pgData, audData] = await Promise.all([
+      const [sfData, taxData, pgData, audData, themeData] = await Promise.all([
         API.getStorefronts(),
         API.getTaxonomies(),
         API.getProductGroups(),
         API.request("/audiences"),
+        API.getThemes(),
       ]);
       storefronts = sfData || [];
       taxonomies = taxData || [];
       productGroups = pgData || [];
       audiences = audData || [];
+      themes = themeData || [];
 
       renderList();
     }
@@ -823,7 +770,6 @@
     const searchInput = document.getElementById("storefront-search");
     const headers = document.querySelectorAll("th[data-sort]");
 
-    const sfTemplateUrl = document.getElementById("sf-template-url");
     const builtinTemplatesContainer = document.getElementById(
       "builtin-templates-container",
     );
@@ -872,36 +818,56 @@
 
     // --- Template Logic ---
     function renderTemplate() {
-      const t = BUILTIN_TEMPLATES[state.currentTemplateIndex];
-      // Use color as placeholder
-      templatePreview.style.backgroundColor = t.color;
-      templatePreview.innerHTML = `<span style="color: white; font-size: 2rem;">${t.name.charAt(0)}</span>`;
-      templateName.textContent = t.name;
-
-      // Dim if custom URL is set
-      if (sfTemplateUrl.value.trim()) {
-        builtinTemplatesContainer.style.opacity = "0.5";
-        builtinTemplatesContainer.style.pointerEvents = "none";
+      if (!themes || themes.length === 0) {
+        templatePreview.innerHTML = `<span style="color: var(--text-secondary); font-size: 1rem;">No themes available</span>`;
+        templatePreview.style.backgroundColor = "var(--bg-body)";
+        templateName.textContent = "—";
+        btnPrevTemplate.disabled = true;
+        btnNextTemplate.disabled = true;
       } else {
-        builtinTemplatesContainer.style.opacity = "1";
-        builtinTemplatesContainer.style.pointerEvents = "auto";
+        btnPrevTemplate.disabled = false;
+        btnNextTemplate.disabled = false;
+
+        // Ensure index is in bounds
+        if (state.currentTemplateIndex >= themes.length)
+          state.currentTemplateIndex = 0;
+
+        const t = themes[state.currentTemplateIndex];
+
+        if (t.images && t.images.length > 0) {
+          templatePreview.style.backgroundColor = "transparent";
+          templatePreview.innerHTML = `<img src="${t.images[0]}" alt="${t.name}" style="width: 100%; height: 100%; object-fit: contain;">`;
+        } else {
+          // Placeholder if no image
+          const colors = [
+            "#6366f1",
+            "#ec4899",
+            "#10b981",
+            "#f59e0b",
+            "#3b82f6",
+          ];
+          const color = colors[state.currentTemplateIndex % colors.length];
+          templatePreview.style.backgroundColor = color;
+          templatePreview.innerHTML = `<span style="color: white; font-size: 2rem;">${t.name.charAt(0).toUpperCase()}</span>`;
+        }
+
+        templateName.textContent = t.name;
       }
     }
 
     btnPrevTemplate.addEventListener("click", () => {
+      if (themes.length === 0) return;
       state.currentTemplateIndex =
-        (state.currentTemplateIndex - 1 + BUILTIN_TEMPLATES.length) %
-        BUILTIN_TEMPLATES.length;
+        (state.currentTemplateIndex - 1 + themes.length) % themes.length;
       renderTemplate();
     });
 
     btnNextTemplate.addEventListener("click", () => {
+      if (themes.length === 0) return;
       state.currentTemplateIndex =
-        (state.currentTemplateIndex + 1) % BUILTIN_TEMPLATES.length;
+        (state.currentTemplateIndex + 1) % themes.length;
       renderTemplate();
     });
-
-    sfTemplateUrl.addEventListener("input", renderTemplate);
 
     // --- Templates ---
     function renderProductGroups(savedConfigs = []) {
@@ -1185,7 +1151,6 @@
       authConfigIdentity.style.display = "none";
 
       // Reset Template State
-      sfTemplateUrl.value = "";
       state.currentTemplateIndex = 0;
       renderTemplate();
 
@@ -1198,11 +1163,8 @@
           sf.supportMcp || false;
 
         // Template State
-        sfTemplateUrl.value = sf.templateUrl || "";
-        if (sf.templateId) {
-          const idx = BUILTIN_TEMPLATES.findIndex(
-            (t) => t.id === sf.templateId,
-          );
+        if (sf.themeId && themes.length > 0) {
+          const idx = themes.findIndex((t) => t.id === sf.themeId);
           state.currentTemplateIndex = idx > -1 ? idx : 0;
         }
         renderTemplate();
@@ -1286,8 +1248,10 @@
           : null;
 
       // Template Data
-      const templateUrl = sfTemplateUrl.value.trim();
-      const templateId = BUILTIN_TEMPLATES[state.currentTemplateIndex].id;
+      let themeId = "";
+      if (themes && themes.length > 0) {
+        themeId = themes[state.currentTemplateIndex]?.id || "";
+      }
 
       // Collect sources
       const sourceRows =
@@ -1320,8 +1284,7 @@
             authType,
             authApiKey,
             authDomain,
-            templateUrl,
-            templateId,
+            themeId,
             productGroups,
           };
         }
@@ -1334,8 +1297,7 @@
           authType,
           authApiKey,
           authDomain,
-          templateUrl,
-          templateId,
+          themeId,
           productGroups,
         };
       }

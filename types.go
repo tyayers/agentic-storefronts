@@ -81,8 +81,7 @@ type Storefront struct {
 	AuthType      string               `json:"authType"`
 	AuthApiKey    *string              `json:"authApiKey"`
 	AuthDomain    *string              `json:"authDomain"`
-	TemplateId    string               `json:"templateId"`
-	TemplateUrl   string               `json:"templateUrl"`
+	ThemeId       string               `json:"themeId"`
 	SupportMcp    bool                 `json:"supportMcp"`
 	ProductGroups []ProductGroupConfig `json:"productGroups"`
 }
@@ -104,6 +103,13 @@ type Taxonomy struct {
 	Name       string   `json:"name"`
 	Categories []string `json:"categories"`
 	Tags       []string `json:"tags"`
+}
+
+type Theme struct {
+	Id         string   `json:"id"`
+	Name       string   `json:"name"`
+	GithubRepo string   `json:"githubRepo"`
+	Images     []string `json:"images"`
 }
 
 type apigeeCacheEntry struct {

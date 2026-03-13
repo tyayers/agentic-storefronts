@@ -20,6 +20,12 @@ document.addEventListener("DOMContentLoaded", () => {
       file: "views/taxonomies.html",
     },
     {
+      id: "themes",
+      label: "Themes",
+      icon: "palette",
+      file: "views/themes.html",
+    },
+    {
       id: "audiences",
       label: "Audiences",
       icon: "people",
