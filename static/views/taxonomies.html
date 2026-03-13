@@ -377,18 +377,41 @@
   (async function () {
     const TaxAPI = {
       async request(endpoint, options = {}) {
-        const token = localStorage.getItem("google_credential");
-        const headers = {
-          "Content-Type": "application/json",
-          ...options.headers,
+        const getHeaders = () => {
+          const token = localStorage.getItem("google_credential");
+          return {
+            "Content-Type": "application/json",
+            ...options.headers,
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          };
         };
-        if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        const response = await fetch(`/api${endpoint}`, {
+        let response = await fetch(`/api${endpoint}`, {
           ...options,
-          headers,
+          headers: getHeaders(),
         });
-        if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+
+        if (response.status === 401) {
+          // Try to refresh token
+          const refreshRes = await fetch("/api/auth/session");
+          if (refreshRes.ok) {
+            const data = await refreshRes.json();
+            localStorage.setItem("google_credential", data.id_token);
+            if (data.user) {
+                localStorage.setItem("user_session", JSON.stringify(data.user));
+            }
+            // Retry with new token
+            response = await fetch(`/api${endpoint}`, {
+              ...options,
+              headers: getHeaders(),
+            });
+          }
+        }
+
+        if (!response.ok) {
+          throw new Error(`API Error: ${response.statusText}`);
+        }
+
         if (response.status === 204) return null;
         return response.json();
       },

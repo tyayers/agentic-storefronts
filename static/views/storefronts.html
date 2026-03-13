@@ -621,30 +621,36 @@
     // --- API Service ---
     const API = {
       async request(endpoint, options = {}) {
-        const userStr = localStorage.getItem("user_session");
-        let token = null;
-        if (userStr) {
-          // Find original google response if needed or stored token.
-          // Assuming user_session stores raw token. If not, we might need a workaround for prototype.
-          // For now, let's extract the credential from local storage if available,
-          // or assume it's stored. Currently the app.js decodes it. We need the raw token.
-          // Wait, the backend requires an ID token. Let's modify the frontend to store the raw credential.
-          token = localStorage.getItem("google_credential");
-        }
-
-        const headers = {
-          "Content-Type": "application/json",
-          ...options.headers,
+        const getHeaders = () => {
+          const token = localStorage.getItem("google_credential");
+          return {
+            "Content-Type": "application/json",
+            ...options.headers,
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          };
         };
 
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-
-        const response = await fetch(`/api${endpoint}`, {
+        let response = await fetch(`/api${endpoint}`, {
           ...options,
-          headers,
+          headers: getHeaders(),
         });
+
+        if (response.status === 401) {
+          // Try to refresh token
+          const refreshRes = await fetch("/api/auth/session");
+          if (refreshRes.ok) {
+            const data = await refreshRes.json();
+            localStorage.setItem("google_credential", data.id_token);
+            if (data.user) {
+                localStorage.setItem("user_session", JSON.stringify(data.user));
+            }
+            // Retry with new token
+            response = await fetch(`/api${endpoint}`, {
+              ...options,
+              headers: getHeaders(),
+            });
+          }
+        }
 
         if (!response.ok) {
           throw new Error(`API Error: ${response.statusText}`);

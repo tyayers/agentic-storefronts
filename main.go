@@ -1089,6 +1089,46 @@ func authLogoutHandler(w http.ResponseWriter, r *http.Request) {
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "logged_out"})
 }
 
+func storefrontHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "Method not allowed"})
+		return
+	}
+
+	name := r.PathValue("name")
+	if name == "" {
+		// Fallback just in case
+		parts := strings.Split(r.URL.Path, "/")
+		if len(parts) >= 4 {
+			name = parts[3]
+		}
+	}
+
+	if name == "" {
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "Missing storefront name"})
+		return
+	}
+
+	// Sanitize name
+	name = filepath.Base(filepath.Clean(name))
+	filePath := filepath.Join(dataDir, name+".json")
+
+	fileData, err := os.ReadFile(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			jsonResponse(w, http.StatusNotFound, map[string]string{"error": "Storefront not found"})
+		} else {
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Failed to read storefront"})
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(fileData)
+}
+
 func storefrontProductsHandler(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	if name == "" {
@@ -1343,6 +1383,10 @@ func main() {
 	mux.HandleFunc("/api/auth/session", authTokenHandler)
 	mux.HandleFunc("/api/auth/logout", authLogoutHandler)
 
+	// Unauthenticated storefront access
+	mux.HandleFunc("/api/storefronts/{name}", storefrontHandler)
+	mux.HandleFunc("/api/storefronts/{name}/products", storefrontProductsHandler)
+
 	// Protected Storefronts API
 	mux.HandleFunc("/api/storefronts", authenticate(storefrontsHandler))
 	mux.HandleFunc("/api/taxonomies", authenticate(taxonomiesHandler))
@@ -1350,7 +1394,6 @@ func main() {
 	mux.HandleFunc("/api/themes", authenticate(themesHandler))
 	mux.HandleFunc("/api/audiences", authenticate(audiencesHandler))
 	mux.HandleFunc("/api/images", authenticate(imagesHandler))
-	mux.HandleFunc("/api/storefronts/{name}/products", storefrontProductsHandler)
 	mux.HandleFunc("/api/products/vertex", authenticate(vertexProductsHandler))
 	mux.HandleFunc("/api/products/apigee", authenticate(apigeeProductsHandler))
 
