@@ -16,18 +16,19 @@ type UserSessionData struct {
 }
 
 type Product struct {
-	Id                 string `json:"id"`
-	Name               string `json:"name"`
-	DisplayName        string `json:"displayName,omitempty"`
-	Description        string `json:"description,omitempty"`
-	DisplayDescription string `json:"displayDescription,omitempty"`
-	Endpoint           string `json:"endpoint,omitempty"`
-	SpecContents       string `json:"specContents,omitempty"`
-	Type               string `json:"type,omitempty"`
-	AuthType           string `json:"authType,omitempty"`
-	Style              string `json:"style,omitempty"`
-	DisplayStyle       string `json:"displayStyle,omitempty"`
-	Image              string `json:"image,omitempty"`
+	Id                 string   `json:"id"`
+	SourceId           string   `json:"sourceId,omitempty"`
+	Name               string   `json:"name"`
+	DisplayName        string   `json:"displayName,omitempty"`
+	Description        string   `json:"description,omitempty"`
+	DisplayDescription string   `json:"displayDescription,omitempty"`
+	Endpoints          []string `json:"endpoints,omitempty"`
+	SpecContents       string   `json:"specContents,omitempty"`
+	Type               string   `json:"type,omitempty"`
+	AuthType           string   `json:"authType,omitempty"`
+	Style              string   `json:"style,omitempty"`
+	DisplayStyle       string   `json:"displayStyle,omitempty"`
+	Image              string   `json:"image,omitempty"`
 }
 
 type SelectedProduct struct {

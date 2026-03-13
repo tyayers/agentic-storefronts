@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -43,6 +44,17 @@ func init() {
 	if oauthConf.ClientID == "" {
 		oauthConf.ClientID = "609874082793-0ad22eutlkcrrs0uehm8vekut6j07u2j.apps.googleusercontent.com"
 	}
+}
+
+func generateIdFromDisplayName(name string) string {
+	slug := strings.ToLower(name)
+	reg := regexp.MustCompile("[^a-z0-9]+")
+	slug = reg.ReplaceAllString(slug, "-")
+	slug = strings.Trim(slug, "-")
+
+	b := make([]byte, 2)
+	rand.Read(b)
+	return fmt.Sprintf("%s-%x", slug, b)
 }
 
 func generateSessionID() string {
@@ -629,7 +641,8 @@ func getVertexProducts(ctx context.Context, projectId, region string) ([]Product
 			displayName = shortId
 		}
 		products = append(products, Product{
-			Id:                 m.Name,
+			Id:                 generateIdFromDisplayName(displayName),
+			SourceId:           m.Name,
 			Name:               displayName,
 			DisplayName:        displayName,
 			Description:        m.Description,
@@ -687,13 +700,14 @@ func getGcpJson(client *http.Client, url string, target interface{}) error {
 
 func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product, error) {
 	cacheKey := fmt.Sprintf("%s:%s", projectId, region)
-	apigeeCacheMutex.Lock()
-	entry, ok := apigeeCache[cacheKey]
-	if ok && time.Since(entry.Timestamp) < time.Hour {
-		apigeeCacheMutex.Unlock()
-		return entry.Data, nil
-	}
-	apigeeCacheMutex.Unlock()
+	// turn off cache check for now, always want fresh data to be updated...
+	// apigeeCacheMutex.Lock()
+	// entry, ok := apigeeCache[cacheKey]
+	// if ok && time.Since(entry.Timestamp) < time.Hour {
+	// 	apigeeCacheMutex.Unlock()
+	// 	return entry.Data, nil
+	// }
+	// apigeeCacheMutex.Unlock()
 
 	client, err := getGCPClient(ctx)
 	if err != nil {
@@ -764,15 +778,21 @@ func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product
 					}
 				}
 
+				displayStyle := apiStyle
+				if displayStyle == "" {
+					displayStyle = "REST"
+				}
+
 				versionProduct := Product{
-					Id:                 vName, // Use version name as the unique ID
+					Id:                 generateIdFromDisplayName(productName),
+					SourceId:           vName, // Use version name as the unique ID from source
 					Name:               productName,
 					DisplayName:        productName,
 					Description:        productDesc,
 					DisplayDescription: productDesc,
 					Type:               "apigee",
 					Style:              apiStyle,
-					DisplayStyle:       apiStyle,
+					DisplayStyle:       displayStyle,
 				}
 
 				// Get specs for this version
@@ -796,21 +816,31 @@ func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product
 				}
 
 				// Get deployment for this version
+				var endpoints []string
 				for _, d := range depsResp.Deployments {
 					apiVersions, _ := d["apiVersions"].([]interface{})
 					for _, av := range apiVersions {
 						avStr, _ := av.(string)
 						if avStr == vName { // Exact match for the version
-							if endpoints, ok := d["endpoints"].([]interface{}); ok && len(endpoints) > 0 {
-								if epMap, ok := endpoints[0].(map[string]interface{}); ok {
-									if uri, ok := epMap["uri"].(string); ok && uri != "" {
-										versionProduct.Endpoint = uri
+							foundEndpointsForDeployment := false
+							if eps, ok := d["endpoints"].([]interface{}); ok && len(eps) > 0 {
+								for _, epInter := range eps {
+									if uriStr, ok := epInter.(string); ok && uriStr != "" {
+										endpoints = append(endpoints, uriStr)
+										foundEndpointsForDeployment = true
+									} else if epMap, ok := epInter.(map[string]interface{}); ok {
+										if uri, ok := epMap["uri"].(string); ok && uri != "" {
+											endpoints = append(endpoints, uri)
+											foundEndpointsForDeployment = true
+										}
 									}
 								}
 							}
-							if versionProduct.Endpoint == "" {
-								if uri, ok := d["deploymentUri"].(string); ok && uri != "" {
-									versionProduct.Endpoint = uri
+							if !foundEndpointsForDeployment {
+								if uri, ok := d["resourceUri"].(string); ok && uri != "" {
+									endpoints = append(endpoints, uri)
+								} else if uri, ok := d["deploymentUri"].(string); ok && uri != "" {
+									endpoints = append(endpoints, uri)
 								}
 							}
 							break
@@ -818,19 +848,28 @@ func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product
 					}
 				}
 
+				if len(endpoints) > 0 {
+					versionProduct.Endpoints = endpoints
+				}
+
 				results = append(results, versionProduct)
 			}
 		} else {
+			displayStyle := apiStyle
+			if displayStyle == "" {
+				displayStyle = "REST"
+			}
 			// If we couldn't get versions, fallback to creating a product for the API itself
 			apiData := Product{
-				Id:                 api.Name,
+				Id:                 generateIdFromDisplayName(apiDisplayName),
+				SourceId:           api.Name,
 				Name:               apiDisplayName,
 				DisplayName:        apiDisplayName,
 				Description:        api.Description,
 				DisplayDescription: api.Description,
 				Type:               "apigee",
 				Style:              apiStyle,
-				DisplayStyle:       apiStyle,
+				DisplayStyle:       displayStyle,
 			}
 			results = append(results, apiData)
 		}
