@@ -696,8 +696,18 @@ func getGcpJson(client *http.Client, url string, target interface{}) error {
 	return json.NewDecoder(resp.Body).Decode(target)
 }
 
-func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product, error) {
+func getApigeeProducts(ctx context.Context, projectId, region string, tryCache bool) ([]Product, error) {
 	cacheKey := fmt.Sprintf("%s:%s", projectId, region)
+	if tryCache {
+		apigeeCacheMutex.Lock()
+		entry, ok := apigeeCache[cacheKey]
+		if ok {
+			apigeeCacheMutex.Unlock()
+			return entry.Data, nil
+		}
+		apigeeCacheMutex.Unlock()
+	}
+
 	client, err := getGCPClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to authenticate with Google Cloud")
@@ -784,21 +794,23 @@ func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product
 					DisplayStyle:       displayStyle,
 				}
 
-				// Get specs for this version
-				specsUrl := fmt.Sprintf("https://apihub.googleapis.com/v1/%s/specs", vName)
-				var specsResp struct {
-					Specs []map[string]interface{} `json:"specs"`
-				}
-				if err := getGcpJson(client, specsUrl, &specsResp); err == nil {
-					// Just grab the first spec contents for now
-					for _, sRaw := range specsResp.Specs {
-						sName, _ := sRaw["name"].(string)
-						contentsUrl := fmt.Sprintf("https://apihub.googleapis.com/v1/%s:contents", sName)
-						var contentsResp map[string]interface{}
-						if err := getGcpJson(client, contentsUrl, &contentsResp); err == nil {
-							if contents, ok := contentsResp["contents"].(string); ok {
-								versionProduct.SpecContents = contents
-								break // Got a spec, stop looking for more specs for this version
+				// Get specs for this version (only for REST)
+				if apiStyle == "REST" {
+					specsUrl := fmt.Sprintf("https://apihub.googleapis.com/v1/%s/specs", vName)
+					var specsResp struct {
+						Specs []map[string]interface{} `json:"specs"`
+					}
+					if err := getGcpJson(client, specsUrl, &specsResp); err == nil {
+						// Just grab the first spec contents for now
+						for _, sRaw := range specsResp.Specs {
+							sName, _ := sRaw["name"].(string)
+							contentsUrl := fmt.Sprintf("https://apihub.googleapis.com/v1/%s:contents", sName)
+							var contentsResp map[string]interface{}
+							if err := getGcpJson(client, contentsUrl, &contentsResp); err == nil {
+								if contents, ok := contentsResp["contents"].(string); ok {
+									versionProduct.SpecContents = contents
+									break // Got a spec, stop looking for more specs for this version
+								}
 							}
 						}
 					}
@@ -895,17 +907,7 @@ func apigeeProductsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cacheKey := fmt.Sprintf("%s:%s", projectId, region)
-	apigeeCacheMutex.Lock()
-	entry, ok := apigeeCache[cacheKey]
-	if ok {
-		apigeeCacheMutex.Unlock()
-		jsonResponse(w, http.StatusOK, entry.Data)
-		return
-	}
-	apigeeCacheMutex.Unlock()
-
-	products, err := getApigeeProducts(r.Context(), projectId, region)
+	products, err := getApigeeProducts(r.Context(), projectId, region, true)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if strings.Contains(err.Error(), "GCP API error") {
@@ -1188,7 +1190,7 @@ func storefrontProductsHandler(w http.ResponseWriter, r *http.Request) {
 			if source.Type == "vertex" {
 				products, fetchErr = getVertexProducts(r.Context(), source.Name, source.Region)
 			} else if source.Type == "apigee" {
-				products, fetchErr = getApigeeProducts(r.Context(), source.Name, source.Region)
+				products, fetchErr = getApigeeProducts(r.Context(), source.Name, source.Region, true)
 			} else if source.Type == "manual" {
 				// Handle manual products if necessary
 				// Not fully implemented in getVertexProducts/getApigeeProducts yet
@@ -1220,6 +1222,8 @@ func storefrontProductsHandler(w http.ResponseWriter, r *http.Request) {
 						if sp.Image != "" {
 							p.Image = sp.Image
 						}
+						p.Categories = sp.Categories
+						p.Tags = sp.Tags
 						allProducts = append(allProducts, p)
 					}
 				}
@@ -1346,7 +1350,7 @@ func main() {
 	if projectId != "" && region != "" {
 		log.Printf("Pre-caching Apigee products for project: %s, region: %s", projectId, region)
 		go func() {
-			_, err := getApigeeProducts(context.Background(), projectId, region)
+			_, err := getApigeeProducts(context.Background(), projectId, region, false)
 			if err != nil {
 				log.Printf("Failed to pre-cache Apigee products: %v", err)
 			} else {

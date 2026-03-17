@@ -29,6 +29,8 @@ type Product struct {
 	Style              string   `json:"style,omitempty"`
 	DisplayStyle       string   `json:"displayStyle,omitempty"`
 	Image              string   `json:"image,omitempty"`
+	Categories         []string `json:"categories"`
+	Tags               []string `json:"tags"`
 }
 
 type SelectedProduct struct {
