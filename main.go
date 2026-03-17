@@ -52,9 +52,7 @@ func generateIdFromDisplayName(name string) string {
 	slug = reg.ReplaceAllString(slug, "-")
 	slug = strings.Trim(slug, "-")
 
-	b := make([]byte, 2)
-	rand.Read(b)
-	return fmt.Sprintf("%s-%x", slug, b)
+	return slug
 }
 
 func generateSessionID() string {
@@ -700,15 +698,6 @@ func getGcpJson(client *http.Client, url string, target interface{}) error {
 
 func getApigeeProducts(ctx context.Context, projectId, region string) ([]Product, error) {
 	cacheKey := fmt.Sprintf("%s:%s", projectId, region)
-	// turn off cache check for now, always want fresh data to be updated...
-	// apigeeCacheMutex.Lock()
-	// entry, ok := apigeeCache[cacheKey]
-	// if ok && time.Since(entry.Timestamp) < time.Hour {
-	// 	apigeeCacheMutex.Unlock()
-	// 	return entry.Data, nil
-	// }
-	// apigeeCacheMutex.Unlock()
-
 	client, err := getGCPClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to authenticate with Google Cloud")
@@ -905,6 +894,16 @@ func apigeeProductsHandler(w http.ResponseWriter, r *http.Request) {
 		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "projectId and region are required"})
 		return
 	}
+
+	cacheKey := fmt.Sprintf("%s:%s", projectId, region)
+	apigeeCacheMutex.Lock()
+	entry, ok := apigeeCache[cacheKey]
+	if ok {
+		apigeeCacheMutex.Unlock()
+		jsonResponse(w, http.StatusOK, entry.Data)
+		return
+	}
+	apigeeCacheMutex.Unlock()
 
 	products, err := getApigeeProducts(r.Context(), projectId, region)
 	if err != nil {
