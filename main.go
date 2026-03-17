@@ -979,6 +979,8 @@ func authCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		Value:    sessionID,
 		Path:     "/",
 		HttpOnly: true,
+		Expires:  time.Now().AddDate(1, 0, 0),
+		MaxAge:   365 * 24 * 60 * 60,
 	})
 
 	jsonResponse(w, http.StatusOK, map[string]interface{}{
@@ -1197,7 +1199,7 @@ func storefrontProductsHandler(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			if source.Autodetect {
+			if source.AllProducts {
 				allProducts = append(allProducts, products...)
 			} else {
 				selectedMap := make(map[string]SelectedProduct)

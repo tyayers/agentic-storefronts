@@ -45,7 +45,7 @@ type Source struct {
 	Name              string            `json:"name"`
 	Type              string            `json:"type"`
 	Region            string            `json:"region"`
-	Autodetect        bool              `json:"autodetect"`
+	AllProducts       bool              `json:"allProducts"`
 	SelectedProducts  []SelectedProduct `json:"selectedProducts"`
 	AllUsers          bool              `json:"allUsers"`
 	SelectedAudiences []string          `json:"selectedAudiences"`

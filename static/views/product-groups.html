@@ -680,7 +680,8 @@
         "background: var(--bg-body); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color); position: relative;";
 
       const type = data.type || "apigee";
-      const autodetect = data.autodetect !== undefined ? data.autodetect : true;
+      const allProducts =
+        data.allProducts !== undefined ? data.allProducts : true;
       const selectedProducts = data.selectedProducts || []; // Structs with id, categories, tags
       const manualProducts = data.manualProducts || []; // For Manual
 
@@ -730,7 +731,7 @@
         if (currentType === "vertex" || currentType === "apigee") {
           const modeDiv = document.createElement("div");
 
-          let isChecked = data.type === currentType ? autodetect : true;
+          let isChecked = data.type === currentType ? allProducts : true;
 
           modeDiv.innerHTML = `
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
@@ -752,9 +753,9 @@
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <span style="font-size: 0.9rem; font-weight: 500;">Autodetect Products 🪄</span>
+                    <span style="font-size: 0.9rem; font-weight: 500;">All Products</span>
                     <label class="switch">
-                        <input type="checkbox" class="autodetect-switch" ${isChecked ? "checked" : ""}>
+                        <input type="checkbox" class="all-products-switch" ${isChecked ? "checked" : ""}>
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -778,7 +779,7 @@
                 </div>
              `;
 
-          const switchEl = modeDiv.querySelector(".autodetect-switch");
+          const switchEl = modeDiv.querySelector(".all-products-switch");
           const selectionArea = modeDiv.querySelector(
             ".product-selection-area",
           );
@@ -1083,7 +1084,7 @@
           switchEl.addEventListener("change", (e) => {
             selectionArea.style.display = e.target.checked ? "none" : "block";
             isChecked = e.target.checked;
-            data.autodetect = isChecked;
+            data.allProducts = isChecked;
             if (!isChecked && localProducts.length === 0) {
               fetchAndRenderProducts();
             }
@@ -1530,9 +1531,9 @@
         };
 
         if (type === "vertex" || type === "apigee") {
-          const autodetect = row.querySelector(".autodetect-switch").checked;
-          sourceData.autodetect = autodetect;
-          if (!autodetect) {
+          const allProducts = row.querySelector(".all-products-switch").checked;
+          sourceData.allProducts = allProducts;
+          if (!allProducts) {
             const checkedProds = Array.from(
               row.querySelectorAll(
                 ".product-selection-row:has(.product-toggle:checked)",
