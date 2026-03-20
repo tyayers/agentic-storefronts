@@ -1401,6 +1401,8 @@ func main() {
 	mux.HandleFunc("/api/images", authenticate(imagesHandler))
 	mux.HandleFunc("/api/products/vertex", authenticate(vertexProductsHandler))
 	mux.HandleFunc("/api/products/apigee", authenticate(apigeeProductsHandler))
+	mux.HandleFunc("/api/users/{email}/apps", userAppsHandler)
+	mux.HandleFunc("/api/users/{email}/apps/{appName}", userAppsDetailHandler)
 
 	// Serve uploaded images statically
 	imagesFs := http.FileServer(http.Dir("./data/images"))

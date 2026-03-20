@@ -119,3 +119,17 @@ type apigeeCacheEntry struct {
 	Data      []Product
 	Timestamp time.Time
 }
+
+type Credential struct {
+	ClientId     string   `json:"clientId"`
+	ClientSecret string   `json:"clientSecret"`
+	Products     []string `json:"products"`
+}
+
+type App struct {
+	Id          string       `json:"id"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Credentials []Credential `json:"credentials"`
+}
+
