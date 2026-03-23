@@ -710,8 +710,9 @@
                     <label style="display: block; font-size: 0.8rem; margin-bottom: 4px; color: var(--text-secondary);">Type</label>
                     <select class="source-type" style="width: 100%; max-width: 300px; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
                         <option value="apigee" ${type === "apigee" ? "selected" : ""}>Apigee Products</option>
-                        <option value="vertex" ${type === "vertex" ? "selected" : ""}>Vertex Products</option>
-                        <option value="manual" ${type === "manual" ? "selected" : ""}>Manual</option>
+                        <option value="vertex-tools" disabled title="Coming soon!">Vertex Tool Registry</option>
+                        <option value="vertex-agents" disabled title="Coming soon!">Vertex Agent Registry</option>
+                        <option value="manual" disabled title="Coming soon!">Manual</option>
                     </select>
                 </div>
 
@@ -842,6 +843,10 @@
                   </div>
                   <div class="product-tag-config" style="display: none; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
                       <div class="product-header" style="margin-bottom: 0.5rem;">
+                          <label style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 2px;">Product ID</label>
+                          <input type="text" class="prod-product-id" value="${spObj && spObj.productId ? spObj.productId : p.productId || ""}" style="width: 100%; padding: 4px 8px; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-body); color: var(--text-primary);">
+                      </div>
+                      <div style="margin-bottom: 0.5rem;">
                           <label style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 2px;">Display Name</label>
                           <input type="text" class="prod-display-name" value="${spObj && spObj.displayName ? spObj.displayName : p.displayName || p.name || ""}" style="width: 100%; padding: 4px 8px; font-size: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-body); color: var(--text-primary);">
                       </div>
@@ -883,6 +888,7 @@
               const expandIcon = row.querySelector(".expand-icon");
               const catChipsContainer = row.querySelector(".prod-cat-chips");
               const tagChipsContainer = row.querySelector(".prod-tag-chips");
+              const prodIdInput = row.querySelector(".prod-product-id");
               const dispNameInput = row.querySelector(".prod-display-name");
               const dispDescInput = row.querySelector(".prod-display-desc");
               const dispStyleInput = row.querySelector(".prod-display-style");
@@ -1021,6 +1027,7 @@
                   typeof sp === "object" ? sp.id === p.id : sp === p.id,
                 );
                 if (toggle.checked) {
+                  const productId = row.querySelector(".prod-product-id").value;
                   const displayName =
                     row.querySelector(".prod-display-name").value;
                   const displayDescription =
@@ -1037,6 +1044,7 @@
                   ).map((cb) => cb.value);
                   const newData = {
                     id: p.id,
+                    productId,
                     displayName,
                     displayDescription,
                     displayStyle,
@@ -1066,6 +1074,7 @@
                 }
               });
 
+              prodIdInput.addEventListener("input", updateLocalProductData);
               dispNameInput.addEventListener("input", updateLocalProductData);
               dispDescInput.addEventListener("input", updateLocalProductData);
               dispStyleInput.addEventListener("input", updateLocalProductData);
@@ -1313,6 +1322,8 @@
             ...new Set(
               pg.sources.map((s) => {
                 if (s.type === "vertex") return "Vertex";
+                if (s.type === "vertex-tools") return "Vertex Tools";
+                if (s.type === "vertex-agents") return "Vertex Agents";
                 if (s.type === "apigee") return "Apigee";
                 return "Manual";
               }),
@@ -1540,6 +1551,7 @@
               ),
             ).map((pRow) => {
               const pId = pRow.querySelector(".product-toggle").value;
+              const productId = pRow.querySelector(".prod-product-id").value;
               const displayName =
                 pRow.querySelector(".prod-display-name").value;
               const displayDescription =
@@ -1556,6 +1568,7 @@
               ).map((cb) => cb.value);
               return {
                 id: pId,
+                productId,
                 displayName,
                 displayDescription,
                 displayStyle,

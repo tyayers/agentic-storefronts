@@ -18,6 +18,7 @@ type UserSessionData struct {
 type Product struct {
 	Id                 string   `json:"id"`
 	SourceId           string   `json:"sourceId,omitempty"`
+	ProductId          string   `json:"productId,omitempty"`
 	Name               string   `json:"name"`
 	DisplayName        string   `json:"displayName,omitempty"`
 	Description        string   `json:"description,omitempty"`
@@ -35,6 +36,7 @@ type Product struct {
 
 type SelectedProduct struct {
 	Id                 string   `json:"id"`
+	ProductId          string   `json:"productId,omitempty"`
 	DisplayName        string   `json:"displayName,omitempty"`
 	DisplayDescription string   `json:"displayDescription,omitempty"`
 	DisplayStyle       string   `json:"displayStyle,omitempty"`
@@ -132,4 +134,3 @@ type App struct {
 	Description string       `json:"description"`
 	Credentials []Credential `json:"credentials"`
 }
-

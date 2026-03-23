@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	firebase "firebase.google.com/go/v4"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/idtoken"
@@ -92,6 +93,68 @@ func authenticate(next http.HandlerFunc) http.HandlerFunc {
 
 		// Add user info to context if needed
 		ctx := context.WithValue(r.Context(), "user_email", payload.Claims["email"])
+		next(w, r.WithContext(ctx))
+	}
+}
+
+var firebaseApp *firebase.App
+
+func getFirebaseApp() (*firebase.App, error) {
+	if firebaseApp != nil {
+		return firebaseApp, nil
+	}
+	app, err := firebase.NewApp(context.Background(), nil)
+	if err != nil {
+		return nil, err
+	}
+	firebaseApp = app
+	return firebaseApp, nil
+}
+
+func authenticateFirebase(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			jsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "Missing or invalid Authorization header"})
+			return
+		}
+
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+		app, err := getFirebaseApp()
+		if err != nil {
+			log.Printf("Failed to init firebase app: %v", err)
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Internal auth error"})
+			return
+		}
+
+		client, err := app.Auth(context.Background())
+		if err != nil {
+			log.Printf("Failed to get auth client: %v", err)
+			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "Internal auth error"})
+			return
+		}
+
+		token, err := client.VerifyIDToken(context.Background(), tokenString)
+		if err != nil {
+			log.Printf("Firebase token validation failed: %v", err)
+			jsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "Invalid token"})
+			return
+		}
+
+		email, ok := token.Claims["email"].(string)
+		if !ok || email == "" {
+			jsonResponse(w, http.StatusUnauthorized, map[string]string{"error": "Token missing email claim"})
+			return
+		}
+
+		pathEmail := r.PathValue("email")
+		if pathEmail != "" && pathEmail != email {
+			jsonResponse(w, http.StatusForbidden, map[string]string{"error": "Forbidden: token email does not match requested email"})
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "user_email", email)
 		next(w, r.WithContext(ctx))
 	}
 }
@@ -741,10 +804,12 @@ func getApigeeProducts(ctx context.Context, projectId, region string, tryCache b
 	var results []Product
 
 	for _, api := range apisResp.Apis {
+		parts := strings.Split(api.Name, "/")
+		apiId := parts[len(parts)-1]
+
 		apiDisplayName := api.DisplayName
 		if apiDisplayName == "" {
-			parts := strings.Split(api.Name, "/")
-			apiDisplayName = parts[len(parts)-1]
+			apiDisplayName = apiId
 		}
 
 		apiStyle := ""
@@ -785,8 +850,9 @@ func getApigeeProducts(ctx context.Context, projectId, region string, tryCache b
 				versionProduct := Product{
 					Id:                 generateIdFromDisplayName(productName),
 					SourceId:           vName, // Use version name as the unique ID from source
+					ProductId:          apiDisplayName,
 					Name:               productName,
-					DisplayName:        productName,
+					DisplayName:        apiDisplayName,
 					Description:        productDesc,
 					DisplayDescription: productDesc,
 					Type:               "apigee",
@@ -1210,6 +1276,9 @@ func storefrontProductsHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				for _, p := range products {
 					if sp, ok := selectedMap[p.Id]; ok {
+						if sp.ProductId != "" {
+							p.ProductId = sp.ProductId
+						}
 						if sp.DisplayName != "" {
 							p.DisplayName = sp.DisplayName
 						}
@@ -1401,8 +1470,11 @@ func main() {
 	mux.HandleFunc("/api/images", authenticate(imagesHandler))
 	mux.HandleFunc("/api/products/vertex", authenticate(vertexProductsHandler))
 	mux.HandleFunc("/api/products/apigee", authenticate(apigeeProductsHandler))
-	mux.HandleFunc("/api/users/{email}/apps", userAppsHandler)
-	mux.HandleFunc("/api/users/{email}/apps/{appName}", userAppsDetailHandler)
+
+	// User subscription management API
+	mux.HandleFunc("/api/users/{email}/login", authenticateFirebase(userLoginHandler))
+	mux.HandleFunc("/api/users/{email}/apps", authenticateFirebase(userAppsHandler))
+	mux.HandleFunc("/api/users/{email}/apps/{appName}", authenticateFirebase(userAppsDetailHandler))
 
 	// Serve uploaded images statically
 	imagesFs := http.FileServer(http.Dir("./data/images"))
