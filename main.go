@@ -1472,9 +1472,10 @@ func main() {
 	mux.HandleFunc("/api/products/apigee", authenticate(apigeeProductsHandler))
 
 	// User subscription management API
-	mux.HandleFunc("/api/users/{email}/login", authenticateFirebase(userLoginHandler))
-	mux.HandleFunc("/api/users/{email}/apps", authenticateFirebase(userAppsHandler))
-	mux.HandleFunc("/api/users/{email}/apps/{appName}", authenticateFirebase(userAppsDetailHandler))
+	mux.HandleFunc("/api/storefronts/{storefrontId}/users/{email}/login", authenticateFirebase(userLoginHandler))
+	mux.HandleFunc("/api/storefronts/{storefrontId}/users/{email}/apps", authenticateFirebase(userAppsHandler))
+	mux.HandleFunc("/api/storefronts/{storefrontId}/users/{email}/apps/{appName}", authenticateFirebase(userAppsDetailHandler))
+	mux.HandleFunc("/api/storefronts/{storefrontId}/users/{email}/analytics", userAnalyticsHandler)
 
 	// Serve uploaded images statically
 	imagesFs := http.FileServer(http.Dir("./data/images"))

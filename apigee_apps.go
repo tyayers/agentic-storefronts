@@ -6,8 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/url"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 )
 
 type ApigeeCredential struct {
@@ -38,6 +44,30 @@ type ApigeeAppCreateReq struct {
 	Name        string            `json:"name"`
 	ApiProducts []string          `json:"apiProducts"`
 	Attributes  []ApigeeAttribute `json:"attributes"`
+}
+
+type ApigeeStatsMetricValue struct {
+	Timestamp int64  `json:"timestamp,omitempty"`
+	Value     string `json:"value,omitempty"`
+}
+
+type ApigeeStatsMetric struct {
+	Name   string                   `json:"name,omitempty"`
+	Values []ApigeeStatsMetricValue `json:"values,omitempty"`
+}
+
+type ApigeeStatsDimension struct {
+	Name    string              `json:"name,omitempty"`
+	Metrics []ApigeeStatsMetric `json:"metrics,omitempty"`
+}
+
+type ApigeeStatsEnv struct {
+	Name       string                 `json:"name,omitempty"`
+	Dimensions []ApigeeStatsDimension `json:"dimensions,omitempty"`
+}
+
+type ApigeeStatsResponse struct {
+	Environments []ApigeeStatsEnv `json:"environments,omitempty"`
 }
 
 type ApigeeAppUpdateReq struct {
@@ -113,27 +143,68 @@ func mapApigeeAppToApp(a ApigeeApp) App {
 
 func userAppsHandler(w http.ResponseWriter, r *http.Request) {
 	email := r.PathValue("email")
-	if email == "" {
-		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "email is required"})
+	storefrontId := r.PathValue("storefrontId")
+	if email == "" || storefrontId == "" {
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "email and storefrontId are required"})
 		return
 	}
 
-	projectId := os.Getenv("PROJECT_ID")
 	ctx := context.Background()
 
-	if r.Method == http.MethodGet {
-		url := fmt.Sprintf("https://apigee.googleapis.com/v1/organizations/%s/developers/%s/apps?expand=true", projectId, email)
-		var list ApigeeAppList
-		if err := doApigeeRequest(ctx, "GET", url, nil, &list); err != nil {
-			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-			return
+	// 1. Read storefront to find Apigee organizations (project IDs)
+	storefrontPath := filepath.Join(dataDir, filepath.Base(filepath.Clean(storefrontId))+".json")
+	sfData, err := os.ReadFile(storefrontPath)
+	if err != nil {
+		jsonResponse(w, http.StatusNotFound, map[string]string{"error": "storefront not found"})
+		return
+	}
+
+	var sf Storefront
+	if err := json.Unmarshal(sfData, &sf); err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "invalid storefront data"})
+		return
+	}
+
+	apigeeOrgs := make(map[string]bool)
+	for _, pgConfig := range sf.ProductGroups {
+		pgPath := filepath.Join(productGroupsDir, filepath.Base(filepath.Clean(pgConfig.ProductGroupId))+".json")
+		pgData, err := os.ReadFile(pgPath)
+		if err != nil {
+			continue
 		}
 
-		apps := make([]App, 0)
-		for _, a := range list.App {
-			apps = append(apps, mapApigeeAppToApp(a))
+		var pg ProductGroup
+		if err := json.Unmarshal(pgData, &pg); err == nil {
+			for _, source := range pg.Sources {
+				if source.Type == "apigee" && source.Name != "" {
+					apigeeOrgs[source.Name] = true
+				}
+			}
 		}
-		jsonResponse(w, http.StatusOK, apps)
+	}
+
+	if r.Method == http.MethodGet {
+		var allApps []App
+
+		for projectId := range apigeeOrgs {
+			url := fmt.Sprintf("https://apigee.googleapis.com/v1/organizations/%s/developers/%s/apps?expand=true", projectId, email)
+			var list ApigeeAppList
+			if err := doApigeeRequest(ctx, "GET", url, nil, &list); err != nil {
+				log.Printf("Failed to get apps from org %s: %v", projectId, err)
+				continue
+			}
+
+			for _, a := range list.App {
+				app := mapApigeeAppToApp(a)
+				app.ProjectId = projectId
+				allApps = append(allApps, app)
+			}
+		}
+
+		if allApps == nil {
+			allApps = []App{}
+		}
+		jsonResponse(w, http.StatusOK, allApps)
 		return
 	}
 
@@ -141,6 +212,23 @@ func userAppsHandler(w http.ResponseWriter, r *http.Request) {
 		var app App
 		if err := json.NewDecoder(r.Body).Decode(&app); err != nil {
 			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
+			return
+		}
+
+		projectId := app.ProjectId
+		if projectId == "" {
+			// fallback to the first discovered Apigee org or ENV
+			for org := range apigeeOrgs {
+				projectId = org
+				break
+			}
+			if projectId == "" {
+				projectId = os.Getenv("PROJECT_ID")
+			}
+		}
+
+		if projectId == "" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "projectId could not be determined for app creation"})
 			return
 		}
 
@@ -162,7 +250,9 @@ func userAppsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		jsonResponse(w, http.StatusCreated, mapApigeeAppToApp(created))
+		mappedApp := mapApigeeAppToApp(created)
+		mappedApp.ProjectId = projectId
+		jsonResponse(w, http.StatusCreated, mappedApp)
 		return
 	}
 
@@ -177,21 +267,33 @@ func userAppsDetailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	projectId := os.Getenv("PROJECT_ID")
 	ctx := context.Background()
 
 	if r.Method == http.MethodGet {
+		projectId := r.URL.Query().Get("projectId")
+		if projectId == "" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "projectId query parameter is required"})
+			return
+		}
 		url := fmt.Sprintf("https://apigee.googleapis.com/v1/organizations/%s/developers/%s/apps/%s", projectId, email, appName)
 		var app ApigeeApp
 		if err := doApigeeRequest(ctx, "GET", url, nil, &app); err != nil {
 			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
 		}
-		jsonResponse(w, http.StatusOK, mapApigeeAppToApp(app))
+
+		mappedApp := mapApigeeAppToApp(app)
+		mappedApp.ProjectId = projectId
+		jsonResponse(w, http.StatusOK, mappedApp)
 		return
 	}
 
 	if r.Method == http.MethodDelete {
+		projectId := r.URL.Query().Get("projectId")
+		if projectId == "" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "projectId query parameter is required"})
+			return
+		}
 		url := fmt.Sprintf("https://apigee.googleapis.com/v1/organizations/%s/developers/%s/apps/%s", projectId, email, appName)
 		if err := doApigeeRequest(ctx, "DELETE", url, nil, nil); err != nil {
 			jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -205,6 +307,12 @@ func userAppsDetailHandler(w http.ResponseWriter, r *http.Request) {
 		var app App
 		if err := json.NewDecoder(r.Body).Decode(&app); err != nil {
 			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
+			return
+		}
+
+		projectId := app.ProjectId
+		if projectId == "" {
+			jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "projectId property in payload is required"})
 			return
 		}
 
@@ -233,9 +341,160 @@ func userAppsDetailHandler(w http.ResponseWriter, r *http.Request) {
 			updatedApp.Credentials[0] = updatedKey
 		}
 
-		jsonResponse(w, http.StatusOK, mapApigeeAppToApp(updatedApp))
+		mappedApp := mapApigeeAppToApp(updatedApp)
+		mappedApp.ProjectId = projectId
+		jsonResponse(w, http.StatusOK, mappedApp)
 		return
 	}
 
 	jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+}
+
+func userAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
+	email := r.PathValue("email")
+	if email == "" {
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "email is required"})
+		return
+	}
+
+	storefrontId := r.PathValue("storefrontId")
+	if storefrontId == "" {
+		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "storefrontId is required"})
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+
+	ctx := context.Background()
+
+	// 1. Read storefront to find Apigee organizations (project IDs)
+	storefrontPath := filepath.Join(dataDir, filepath.Base(filepath.Clean(storefrontId))+".json")
+	sfData, err := os.ReadFile(storefrontPath)
+	if err != nil {
+		jsonResponse(w, http.StatusNotFound, map[string]string{"error": "storefront not found"})
+		return
+	}
+
+	var sf Storefront
+	if err := json.Unmarshal(sfData, &sf); err != nil {
+		jsonResponse(w, http.StatusInternalServerError, map[string]string{"error": "invalid storefront data"})
+		return
+	}
+
+	apigeeOrgs := make(map[string]bool)
+	for _, pgConfig := range sf.ProductGroups {
+		pgPath := filepath.Join(productGroupsDir, filepath.Base(filepath.Clean(pgConfig.ProductGroupId))+".json")
+		pgData, err := os.ReadFile(pgPath)
+		if err != nil {
+			log.Printf("Failed to read product group %s: %v", pgConfig.ProductGroupId, err)
+			continue
+		}
+
+		var pg ProductGroup
+		if err := json.Unmarshal(pgData, &pg); err != nil {
+			log.Printf("Failed to parse product group %s: %v", pgConfig.ProductGroupId, err)
+			continue
+		}
+
+		for _, source := range pg.Sources {
+			if source.Type == "apigee" && source.Name != "" {
+				apigeeOrgs[source.Name] = true
+			}
+		}
+	}
+
+	if len(apigeeOrgs) == 0 {
+		// No Apigee sources found, return empty stats
+		jsonResponse(w, http.StatusOK, map[string]interface{}{
+			"totalCalls":   0,
+			"callsByApp":   make(map[string]int64),
+			"environments": make(map[string]interface{}),
+			"timeRange":    "",
+		})
+		return
+	}
+
+	// 2. Compute timeRange (last 3 months)
+	now := time.Now().UTC()
+	threeMonthsAgo := now.AddDate(0, -3, 0)
+	timeRange := fmt.Sprintf("%02d/%02d/%04d %02d:%02d~%02d/%02d/%04d %02d:%02d",
+		threeMonthsAgo.Month(), threeMonthsAgo.Day(), threeMonthsAgo.Year(), threeMonthsAgo.Hour(), threeMonthsAgo.Minute(),
+		now.Month(), now.Day(), now.Year(), now.Hour(), now.Minute())
+
+	escapedTimeRange := strings.Replace(url.QueryEscape(timeRange), "+", "%20", -1)
+	escapedFilter := strings.Replace(url.QueryEscape(fmt.Sprintf("(developer_email eq '%s')", email)), "+", "%20", -1)
+
+	totalCalls := int64(0)
+	callsByApp := make(map[string]int64)
+	envStats := make(map[string]interface{})
+
+	// Loop over discovered Apigee Orgs
+	for projectId := range apigeeOrgs {
+		// Get all environments for this org
+		envUrl := fmt.Sprintf("https://apigee.googleapis.com/v1/organizations/%s/environments", projectId)
+		var envs []string
+		if err := doApigeeRequest(ctx, "GET", envUrl, nil, &envs); err != nil {
+			log.Printf("Failed to get environments for org %s: %v", projectId, err)
+			continue
+		}
+
+		for _, env := range envs {
+			statsUrl := fmt.Sprintf("https://apigee.googleapis.com/v1/organizations/%s/environments/%s/stats/developer_app?select=sum(message_count)&timeUnit=day&timeRange=%s&filter=%s",
+				projectId, env, escapedTimeRange, escapedFilter)
+
+			var statsResp ApigeeStatsResponse
+			err := doApigeeRequest(ctx, "GET", statsUrl, nil, &statsResp)
+			if err != nil {
+				log.Printf("Failed to get stats for org %s env %s: %v", projectId, env, err)
+				continue
+			}
+
+			envTotal := int64(0)
+			envCallsByApp := make(map[string]int64)
+
+			if existing, ok := envStats[env].(map[string]interface{}); ok {
+				envTotal = existing["totalCalls"].(int64)
+				if existingApps, ok2 := existing["callsByApp"].(map[string]int64); ok2 {
+					for k, v := range existingApps {
+						envCallsByApp[k] = v
+					}
+				}
+			}
+
+			for _, e := range statsResp.Environments {
+				for _, d := range e.Dimensions {
+					appName := d.Name
+					for _, m := range d.Metrics {
+						if m.Name == "sum(message_count)" {
+							for _, v := range m.Values {
+								valFloat, _ := strconv.ParseFloat(v.Value, 64)
+								val := int64(valFloat)
+								totalCalls += val
+								callsByApp[appName] += val
+								envTotal += val
+								envCallsByApp[appName] += val
+							}
+						}
+					}
+				}
+			}
+
+			envStats[env] = map[string]interface{}{
+				"totalCalls": envTotal,
+				"callsByApp": envCallsByApp,
+			}
+		}
+	}
+
+	response := map[string]interface{}{
+		"totalCalls":   totalCalls,
+		"callsByApp":   callsByApp,
+		"environments": envStats,
+		"timeRange":    timeRange,
+	}
+
+	jsonResponse(w, http.StatusOK, response)
 }

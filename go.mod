@@ -3,6 +3,7 @@ module agentic-storefronts
 go 1.25.0
 
 require (
+	firebase.google.com/go/v4 v4.19.0
 	golang.org/x/oauth2 v0.35.0
 	google.golang.org/api v0.269.0
 )
@@ -18,7 +19,6 @@ require (
 	cloud.google.com/go/longrunning v0.8.0 // indirect
 	cloud.google.com/go/monitoring v1.24.3 // indirect
 	cloud.google.com/go/storage v1.56.0 // indirect
-	firebase.google.com/go/v4 v4.19.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.30.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.53.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.53.0 // indirect

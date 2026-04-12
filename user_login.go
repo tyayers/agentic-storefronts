@@ -11,10 +11,6 @@ import (
 	"strings"
 )
 
-type LoginRequest struct {
-	StorefrontId string `json:"storefrontId"`
-}
-
 func userLoginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		jsonResponse(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
@@ -27,18 +23,13 @@ func userLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "invalid payload"})
-		return
-	}
-
-	if req.StorefrontId == "" {
+	storefrontId := r.PathValue("storefrontId")
+	if storefrontId == "" {
 		jsonResponse(w, http.StatusBadRequest, map[string]string{"error": "storefrontId is required"})
 		return
 	}
 
-	go processApigeeUserRegistration(email, req.StorefrontId)
+	go processApigeeUserRegistration(email, storefrontId)
 
 	jsonResponse(w, http.StatusOK, map[string]string{"status": "success"})
 }

@@ -2,10 +2,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- Configuration ---
   const routes = [
     {
-      id: "storefronts",
-      label: "Storefronts",
-      icon: "store",
-      file: "views/storefronts.html",
+      id: "taxonomies",
+      label: "Taxonomies",
+      icon: "category",
+      file: "views/taxonomies.html",
     },
     {
       id: "product-groups",
@@ -14,10 +14,10 @@ document.addEventListener("DOMContentLoaded", () => {
       file: "views/product-groups.html",
     },
     {
-      id: "taxonomies",
-      label: "Taxonomies",
-      icon: "category",
-      file: "views/taxonomies.html",
+      id: "storefronts",
+      label: "Storefronts",
+      icon: "store",
+      file: "views/storefronts.html",
     },
     {
       id: "themes",
@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- State ---
   const state = {
-    currentRoute: "storefronts",
+    currentRoute: "taxonomies",
     theme: localStorage.getItem("theme") || "light",
   };
 
@@ -206,7 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function handleRoute() {
-    const hash = window.location.hash.substring(1) || "storefronts";
+    const hash = window.location.hash.substring(1) || "taxonomies";
     const route = routes.find((r) => r.id === hash);
 
     if (route) {

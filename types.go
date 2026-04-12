@@ -130,6 +130,7 @@ type Credential struct {
 
 type App struct {
 	Id          string       `json:"id"`
+	ProjectId   string       `json:"projectId,omitempty"`
 	Name        string       `json:"name"`
 	Description string       `json:"description"`
 	Credentials []Credential `json:"credentials"`
