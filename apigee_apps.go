@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -44,30 +43,6 @@ type ApigeeAppCreateReq struct {
 	Name        string            `json:"name"`
 	ApiProducts []string          `json:"apiProducts"`
 	Attributes  []ApigeeAttribute `json:"attributes"`
-}
-
-type ApigeeStatsMetricValue struct {
-	Timestamp int64  `json:"timestamp,omitempty"`
-	Value     string `json:"value,omitempty"`
-}
-
-type ApigeeStatsMetric struct {
-	Name   string                   `json:"name,omitempty"`
-	Values []ApigeeStatsMetricValue `json:"values,omitempty"`
-}
-
-type ApigeeStatsDimension struct {
-	Name    string              `json:"name,omitempty"`
-	Metrics []ApigeeStatsMetric `json:"metrics,omitempty"`
-}
-
-type ApigeeStatsEnv struct {
-	Name       string                 `json:"name,omitempty"`
-	Dimensions []ApigeeStatsDimension `json:"dimensions,omitempty"`
-}
-
-type ApigeeStatsResponse struct {
-	Environments []ApigeeStatsEnv `json:"environments,omitempty"`
 }
 
 type ApigeeAppUpdateReq struct {
@@ -409,10 +384,9 @@ func userAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
 	if len(apigeeOrgs) == 0 {
 		// No Apigee sources found, return empty stats
 		jsonResponse(w, http.StatusOK, map[string]interface{}{
-			"totalCalls":   0,
-			"callsByApp":   make(map[string]int64),
-			"environments": make(map[string]interface{}),
-			"timeRange":    "",
+			"app":     []interface{}{},
+			"product": []interface{}{},
+			"model":   []interface{}{},
 		})
 		return
 	}
@@ -427,9 +401,9 @@ func userAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
 	escapedTimeRange := strings.Replace(url.QueryEscape(timeRange), "+", "%20", -1)
 	escapedFilter := strings.Replace(url.QueryEscape(fmt.Sprintf("(developer_email eq '%s')", email)), "+", "%20", -1)
 
-	totalCalls := int64(0)
-	callsByApp := make(map[string]int64)
-	envStats := make(map[string]interface{})
+	var appStats []interface{}
+	var productStats []interface{}
+	var modelStats []interface{}
 
 	// Loop over discovered Apigee Orgs
 	for projectId := range apigeeOrgs {
@@ -442,59 +416,47 @@ func userAnalyticsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, env := range envs {
-			statsUrl := fmt.Sprintf("https://apigee.googleapis.com/v1/organizations/%s/environments/%s/stats/developer_app?select=sum(message_count)&timeUnit=day&timeRange=%s&filter=%s",
+			// 1. Stats by developer_app
+			appStatsUrl := fmt.Sprintf("https://apigee.googleapis.com/v1/organizations/%s/environments/%s/stats/developer_app?select=sum(message_count),sum(dc_ai_prompt_token_count),sum(dc_ai_response_token_count)&timeUnit=day&timeRange=%s&filter=%s",
 				projectId, env, escapedTimeRange, escapedFilter)
 
-			var statsResp ApigeeStatsResponse
-			err := doApigeeRequest(ctx, "GET", statsUrl, nil, &statsResp)
-			if err != nil {
-				log.Printf("Failed to get stats for org %s env %s: %v", projectId, env, err)
-				continue
+			var appStatsResp map[string]interface{}
+			if err := doApigeeRequest(ctx, "GET", appStatsUrl, nil, &appStatsResp); err != nil {
+				log.Printf("Failed to get app stats for org %s env %s: %v", projectId, env, err)
+			} else {
+				delete(appStatsResp, "metaData")
+				appStats = append(appStats, appStatsResp)
 			}
 
-			envTotal := int64(0)
-			envCallsByApp := make(map[string]int64)
+			// 2. Stats by api_product
+			prodStatsUrl := fmt.Sprintf("https://apigee.googleapis.com/v1/organizations/%s/environments/%s/stats/api_product?select=sum(message_count),sum(dc_ai_prompt_token_count),sum(dc_ai_response_token_count)&timeUnit=day&timeRange=%s&filter=%s",
+				projectId, env, escapedTimeRange, escapedFilter)
 
-			if existing, ok := envStats[env].(map[string]interface{}); ok {
-				envTotal = existing["totalCalls"].(int64)
-				if existingApps, ok2 := existing["callsByApp"].(map[string]int64); ok2 {
-					for k, v := range existingApps {
-						envCallsByApp[k] = v
-					}
-				}
+			var prodStatsResp map[string]interface{}
+			if err := doApigeeRequest(ctx, "GET", prodStatsUrl, nil, &prodStatsResp); err != nil {
+				log.Printf("Failed to get product stats for org %s env %s: %v", projectId, env, err)
+			} else {
+				delete(prodStatsResp, "metaData")
+				productStats = append(productStats, prodStatsResp)
 			}
 
-			for _, e := range statsResp.Environments {
-				for _, d := range e.Dimensions {
-					appName := d.Name
-					for _, m := range d.Metrics {
-						if m.Name == "sum(message_count)" {
-							for _, v := range m.Values {
-								valFloat, _ := strconv.ParseFloat(v.Value, 64)
-								val := int64(valFloat)
-								totalCalls += val
-								callsByApp[appName] += val
-								envTotal += val
-								envCallsByApp[appName] += val
-							}
-						}
-					}
-				}
-			}
+			// 3. Stats by dc_ai_model
+			modelStatsUrl := fmt.Sprintf("https://apigee.googleapis.com/v1/organizations/%s/environments/%s/stats/dc_ai_model?select=sum(dc_ai_prompt_token_count),sum(dc_ai_response_token_count),avg(dc_ai_time_first_token)&timeUnit=day&timeRange=%s&filter=%s",
+				projectId, env, escapedTimeRange, escapedFilter)
 
-			envStats[env] = map[string]interface{}{
-				"totalCalls": envTotal,
-				"callsByApp": envCallsByApp,
+			var modelStatsResp map[string]interface{}
+			if err := doApigeeRequest(ctx, "GET", modelStatsUrl, nil, &modelStatsResp); err != nil {
+				log.Printf("Failed to get model stats for org %s env %s: %v", projectId, env, err)
+			} else {
+				delete(modelStatsResp, "metaData")
+				modelStats = append(modelStats, modelStatsResp)
 			}
 		}
 	}
 
-	response := map[string]interface{}{
-		"totalCalls":   totalCalls,
-		"callsByApp":   callsByApp,
-		"environments": envStats,
-		"timeRange":    timeRange,
-	}
-
-	jsonResponse(w, http.StatusOK, response)
+	jsonResponse(w, http.StatusOK, map[string]interface{}{
+		"app":     appStats,
+		"product": productStats,
+		"model":   modelStats,
+	})
 }
