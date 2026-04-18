@@ -71,6 +71,22 @@ func jsonResponse(w http.ResponseWriter, status int, data interface{}) {
 	}
 }
 
+// withCORS middleware adds CORS headers for permissive access
+func withCORS(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next(w, r)
+	}
+}
+
 // Helper to authenticate user via Google ID Token
 func authenticate(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -1458,8 +1474,8 @@ func main() {
 	mux.HandleFunc("/api/auth/logout", authLogoutHandler)
 
 	// Unauthenticated storefront access
-	mux.HandleFunc("/api/storefronts/{name}", storefrontHandler)
-	mux.HandleFunc("/api/storefronts/{name}/products", storefrontProductsHandler)
+	mux.HandleFunc("/api/storefronts/{name}", withCORS(storefrontHandler))
+	mux.HandleFunc("/api/storefronts/{name}/products", withCORS(storefrontProductsHandler))
 
 	// Protected Storefronts API
 	mux.HandleFunc("/api/storefronts", authenticate(storefrontsHandler))
@@ -1472,10 +1488,10 @@ func main() {
 	mux.HandleFunc("/api/products/apigee", authenticate(apigeeProductsHandler))
 
 	// User subscription management API
-	mux.HandleFunc("/api/storefronts/{storefrontId}/users/{email}/login", authenticateFirebase(userLoginHandler))
-	mux.HandleFunc("/api/storefronts/{storefrontId}/users/{email}/apps", authenticateFirebase(userAppsHandler))
-	mux.HandleFunc("/api/storefronts/{storefrontId}/users/{email}/apps/{appName}", authenticateFirebase(userAppsDetailHandler))
-	mux.HandleFunc("/api/storefronts/{storefrontId}/users/{email}/analytics", userAnalyticsHandler)
+	mux.HandleFunc("/api/storefronts/{storefrontId}/users/{email}/login", withCORS(authenticateFirebase(userLoginHandler)))
+	mux.HandleFunc("/api/storefronts/{storefrontId}/users/{email}/apps", withCORS(authenticateFirebase(userAppsHandler)))
+	mux.HandleFunc("/api/storefronts/{storefrontId}/users/{email}/apps/{appName}", withCORS(authenticateFirebase(userAppsDetailHandler)))
+	mux.HandleFunc("/api/storefronts/{storefrontId}/users/{email}/analytics", withCORS(userAnalyticsHandler))
 
 	// Serve uploaded images statically
 	imagesFs := http.FileServer(http.Dir("./data/images"))
